@@ -33,7 +33,7 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadow
 renderer.domElement.style.cssText = 'position:absolute;inset:0';
 host.prepend(renderer.domElement);
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xcfdde0, 14, 85);
+scene.fog = new THREE.Fog(0xc9d4c5, 12, 72);
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .1, 400);
 
 /* ---------- sky + light (golden hour, sun low behind the buddy) ---------- */
@@ -120,22 +120,22 @@ blob.position.y = .012; scene.add(blob);
 /* ---------- meadow ---------- */
 const hgt = (x, z) => (sn(x * .13 + sn(z * .07)) * .6 + Math.cos(z * .17) * .3) * THREE.MathUtils.smoothstep(Math.hypot(x, z), 3, 11);
 const tg = new THREE.PlaneGeometry(170, 170, 150, 150).rotateX(-Math.PI / 2); const tp = tg.attributes.position, tc = [];
-for (let i = 0; i < tp.count; i++) { const x = tp.getX(i), z = tp.getZ(i); tp.setY(i, hgt(x, z)); const k = THREE.MathUtils.smoothstep(Math.hypot(x, z), 0, 40); tc.push(.36 - k * .12, .62 - k * .12, .24 - k * .06); }
+for (let i = 0; i < tp.count; i++) { const x = tp.getX(i), z = tp.getZ(i); tp.setY(i, hgt(x, z)); const k = THREE.MathUtils.smoothstep(Math.hypot(x, z), 0, 40); tc.push(.34 - k * .08, .68 - k * .1, .22 - k * .035); }
 tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3)); tg.computeVertexNormals();
 const ground = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })); ground.receiveShadow = true; scene.add(ground);
 
 const GN = 30000;
 const bg = new THREE.BufferGeometry();
 bg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array([
-  -.018, 0, 0,  .018, 0, 0,  .007, .72, 0, -.007, .72, 0,
-   0, 0,-.018,   0, 0, .018,  0, .72, .007,  0, .72,-.007
+  -.018, 0, 0,  .018, 0, 0,  .014, .36, 0, -.014, .36, 0,  .005, .72, 0, -.005, .72, 0,
+   0, 0,-.018,   0, 0, .018,  0, .36, .014,  0, .36,-.014,  0, .72, .005,  0, .72,-.005
 ]), 3));
-bg.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]); bg.computeVertexNormals();
+bg.setIndex([0,1,2,0,2,3,3,2,4,3,4,5,6,7,8,6,8,9,9,8,10,9,10,11]); bg.computeVertexNormals();
 const windU = { value: 0 };
 const grassMat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: .96, metalness: 0 });
 grassMat.onBeforeCompile = sh => {
   sh.uniforms.uT = windU;
-  sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat hh=position.y;vec4 ip=instanceMatrix[3];float gust=sin(uT*1.35+ip.x*.34+ip.z*.27)+sin(uT*.72+ip.z*.52);transformed.x+=gust*hh*hh*.24;transformed.z+=sin(uT*1.1+ip.z*.64+ip.x*.18)*hh*hh*.16;');
+  sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat hh=position.y;vec4 ip=instanceMatrix[3];float gust=sin(uT*1.35+ip.x*.34+ip.z*.27)+sin(uT*.72+ip.z*.52);transformed.x+=gust*hh*hh*.2;transformed.z+=sin(uT*1.1+ip.z*.64+ip.x*.18)*hh*hh*.14;');
 };
 const grass = new THREE.InstancedMesh(bg, grassMat, GN), tmp = new THREE.Object3D(), col = new THREE.Color();
 for (let i = 0; i < GN; i++) {
@@ -145,11 +145,11 @@ for (let i = 0; i < GN; i++) {
 }
 grass.receiveShadow = true; scene.add(grass);
 
-const FN = 900;
+const FN = 1100;
 const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(.004, .006, .3).translate(0, .15, 0), new THREE.MeshStandardMaterial({ color: 0x4f8a3a, roughness: 1 }), FN);
 const petals = new THREE.InstancedMesh(new THREE.SphereGeometry(.055, 10, 7), new THREE.MeshStandardMaterial({ roughness: .7 }), FN * 5);
 const centers = new THREE.InstancedMesh(new THREE.SphereGeometry(.035, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd34d, roughness: .55 }), FN);
-const fcols = [0xfff3d6, 0xffd34d, 0xff8fb8, 0xffffff];
+const fcols = [0xfff6dc, 0xfff9ec, 0xffe9b7, 0xffffff];
 const flowerTmp = new THREE.Object3D();
 for (let i = 0; i < FN; i++) {
   const r = rnd(1.3, 22), a = rnd(0, TAU), x = Math.cos(a) * r, z = Math.sin(a) * r, y = hgt(x, z);
