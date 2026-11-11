@@ -124,11 +124,11 @@ for (let i = 0; i < tp.count; i++) { const x = tp.getX(i), z = tp.getZ(i); tp.se
 tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3)); tg.computeVertexNormals();
 const ground = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })); ground.receiveShadow = true; scene.add(ground);
 
-const GN = 18000;
+const GN = 30000;
 const bg = new THREE.BufferGeometry();
 bg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array([
-  -.05, 0, 0,  .05, 0, 0,  .035, .62, 0, -.035, .62, 0,
-   0, 0,-.05,   0, 0, .05,  0, .62, .035,  0, .62,-.035
+  -.018, 0, 0,  .018, 0, 0,  .007, .72, 0, -.007, .72, 0,
+   0, 0,-.018,   0, 0, .018,  0, .72, .007,  0, .72,-.007
 ]), 3));
 bg.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]); bg.computeVertexNormals();
 const windU = { value: 0 };
@@ -140,21 +140,29 @@ grassMat.onBeforeCompile = sh => {
 const grass = new THREE.InstancedMesh(bg, grassMat, GN), tmp = new THREE.Object3D(), col = new THREE.Color();
 for (let i = 0; i < GN; i++) {
   const r = Math.sqrt(Math.random()) * 24, a = rnd(0, TAU), x = Math.cos(a) * r, z = Math.sin(a) * r;
-  const foreground = THREE.MathUtils.smoothstep(10 - r, 0, 10);
-  tmp.position.set(x, hgt(x, z), z); tmp.rotation.y = rnd(0, Math.PI); tmp.scale.setScalar(r < 1 ? .5 : rnd(.72, 1.25) + foreground * .35); tmp.updateMatrix();
-  grass.setMatrixAt(i, tmp.matrix); grass.setColorAt(i, col.setHSL(rnd(.23, .32), rnd(.52, .72), rnd(.23, .43) + foreground * .05));
+  tmp.position.set(x, hgt(x, z), z); tmp.rotation.y = rnd(0, Math.PI); tmp.rotation.x = rnd(-.12, .12); tmp.scale.setScalar(rnd(.58, 1.35)); tmp.updateMatrix();
+  grass.setMatrixAt(i, tmp.matrix); grass.setColorAt(i, col.setHSL(rnd(.23, .34), rnd(.55, .78), rnd(.22, .45)));
 }
 grass.receiveShadow = true; scene.add(grass);
 
-const FN = 320, flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(.05, 10, 8), clay(0xffffff, { emissive: 0x000000 }), FN);
-const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(.006, .006, .28).translate(0, .14, 0), new THREE.MeshStandardMaterial({ color: 0x4f8a3a }), FN);
+const FN = 900;
+const stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(.004, .006, .3).translate(0, .15, 0), new THREE.MeshStandardMaterial({ color: 0x4f8a3a, roughness: 1 }), FN);
+const petals = new THREE.InstancedMesh(new THREE.SphereGeometry(.055, 10, 7), new THREE.MeshStandardMaterial({ roughness: .7 }), FN * 5);
+const centers = new THREE.InstancedMesh(new THREE.SphereGeometry(.035, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffd34d, roughness: .55 }), FN);
 const fcols = [0xfff3d6, 0xffd34d, 0xff8fb8, 0xffffff];
+const flowerTmp = new THREE.Object3D();
 for (let i = 0; i < FN; i++) {
   const r = rnd(1.3, 22), a = rnd(0, TAU), x = Math.cos(a) * r, z = Math.sin(a) * r, y = hgt(x, z);
   tmp.position.set(x, y, z); tmp.rotation.set(0, 0, 0); tmp.scale.setScalar(1); tmp.updateMatrix(); stems.setMatrixAt(i, tmp.matrix);
-  tmp.position.y = y + .28; tmp.scale.setScalar(rnd(.8, 1.4)); tmp.updateMatrix(); flowers.setMatrixAt(i, tmp.matrix); flowers.setColorAt(i, col.setHex(fcols[i % 4]));
+  flowerTmp.position.set(x, y + .31, z); flowerTmp.scale.setScalar(1); flowerTmp.updateMatrix(); centers.setMatrixAt(i, flowerTmp.matrix);
+  for (let p = 0; p < 5; p++) {
+    const pa = p / 5 * TAU;
+    flowerTmp.position.set(x + Math.cos(pa) * .065, y + .31, z + Math.sin(pa) * .065);
+    flowerTmp.rotation.set(0, pa, 0); flowerTmp.scale.set(.9, .34, 1.15); flowerTmp.updateMatrix();
+    petals.setMatrixAt(i * 5 + p, flowerTmp.matrix); petals.setColorAt(i * 5 + p, col.setHex(fcols[i % fcols.length]));
+  }
 }
-scene.add(stems, flowers);
+scene.add(stems, petals, centers);
 
 const canopy = [0x4f9a4a, 0x5fae52, 0x44873f].map(c => clay(c, { roughness: .8 })), trunk = clay(0x7a5a44);
 function tree(x, z, s) {
