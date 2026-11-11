@@ -118,6 +118,7 @@ const blob = new THREE.Mesh(new THREE.CircleGeometry(.9, 32).rotateX(-Math.PI / 
 blob.position.y = .012; scene.add(blob);
 
 /* ---------- meadow ---------- */
+const meadowStart = scene.children.length;
 const hgt = (x, z) => (sn(x * .13 + sn(z * .07)) * .6 + Math.cos(z * .17) * .3) * THREE.MathUtils.smoothstep(Math.hypot(x, z), 3, 11);
 const tg = new THREE.PlaneGeometry(170, 170, 150, 150).rotateX(-Math.PI / 2); const tp = tg.attributes.position, tc = [];
 for (let i = 0; i < tp.count; i++) { const x = tp.getX(i), z = tp.getZ(i); tp.setY(i, hgt(x, z)); const k = THREE.MathUtils.smoothstep(Math.hypot(x, z), 0, 40); tc.push(.34 - k * .08, .68 - k * .1, .22 - k * .035); }
@@ -183,6 +184,25 @@ const PN = 240, pp = new Float32Array(PN * 3), pv = new Float32Array(PN);
 for (let i = 0; i < PN; i++) { pp.set([rnd(-10, 10), rnd(.2, 5), rnd(-12, 5)], i * 3); pv[i] = rnd(.05, .22); }
 const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
 scene.add(new THREE.Points(pg, new THREE.PointsMaterial({ size: .1, map: dot, transparent: true, opacity: .75, depthWrite: false, blending: THREE.AdditiveBlending })));
+
+/* The supplied reference is the exact background composition; the avatar remains live in front. */
+scene.children.slice(meadowStart).forEach(object => { object.visible = false; });
+const referenceTexture = new THREE.TextureLoader().load('/static/soft-meadow-reference.png');
+const referencePlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(2, 2),
+  new THREE.MeshBasicMaterial({ map: referenceTexture, depthWrite: false })
+);
+referencePlane.position.set(0, 1.5, -18); referencePlane.renderOrder = -10; scene.add(referencePlane);
+const fitReference = () => {
+  const distance = camera.position.z - referencePlane.position.z;
+  const height = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const width = height * (innerWidth / innerHeight);
+  const imageAspect = 986 / 532;
+  const fitWidth = Math.max(width, height * imageAspect);
+  const fitHeight = Math.max(height, width / imageAspect);
+  referencePlane.scale.set(fitWidth / 2, fitHeight / 2, 1);
+};
+fitReference();
 
 /* ---------- hooks shared with the HUD / realtime.js ---------- */
 let analyser = null, adata = null, lvl = 0, speaking = false, statusMode = 'idle';
@@ -294,6 +314,7 @@ function frame() {
   const az = cam.az + ptr.sx * .06, el = cam.el + .06 + ptr.sy * .02;
   tgt.set(0, cam.ty, 0);
   camera.position.set(sn(az) * Math.cos(el) * cam.dist + sn(t * .2) * .04, tgt.y + sn(el) * cam.dist, Math.cos(az) * Math.cos(el) * cam.dist);
+  fitReference();
   camera.lookAt(tgt);
   bokeh.uniforms.focus.value = camera.position.distanceTo(tgt);
   grade.uniforms.t.value = t % 10;
@@ -301,4 +322,4 @@ function frame() {
 }
 frame();
 
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); fitReference(); });

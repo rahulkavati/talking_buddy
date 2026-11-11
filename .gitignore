@@ -6,6 +6,7 @@ __pycache__/
 models/
 static/*.vrm
 static/*.png
+!static/soft-meadow-reference.png
 static/*.wav
 static/*.aiff
 static/*.mp3
