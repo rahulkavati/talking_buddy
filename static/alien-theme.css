@@ -1,0 +1,46 @@
+:root{
+  --red:#ff6fae;
+  --amber:#b9ffe1;
+  --panel:rgba(8,24,27,.72);
+  --line:rgba(185,255,225,.24);
+}
+body{
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.01em;
+  background:#050d12;
+}
+#canvas-container{
+  background:
+    radial-gradient(ellipse at 50% 62%,rgba(56,140,125,.32),transparent 42%),
+    radial-gradient(circle at 78% 18%,rgba(219,86,158,.14),transparent 27%),
+    linear-gradient(180deg,#03080d 0%,#07151a 56%,#0b2728 100%);
+}
+.hud{padding:28px 34px 30px;}
+.hud:after{background:radial-gradient(ellipse at center,transparent 30%,rgba(0,0,0,.64) 100%);}
+.glass{
+  background:rgba(6,22,26,.62);
+  border:1px solid rgba(185,255,225,.22);
+  box-shadow:0 18px 55px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.08);
+}
+.logo{border-color:rgba(255,111,174,.45);color:#ff83bd;box-shadow:0 0 22px rgba(255,111,174,.14);}
+.eyebrow{color:rgba(210,245,235,.62);letter-spacing:.25em;font-size:.62rem;}
+.title{font-family:ui-sans-serif,system-ui,sans-serif;font-size:1.35rem;font-weight:700;letter-spacing:.18em;color:#effff9;text-shadow:0 0 18px rgba(185,255,225,.34);}
+.badge{color:#b9ffe1;border-color:rgba(185,255,225,.35);background:rgba(185,255,225,.08);}
+.connection{color:rgba(210,245,235,.62);}
+.dot{background:#ff6fae;box-shadow:0 0 12px #ff6fae;}
+.right{width:min(100%,410px);gap:14px;}
+.icon-btn{border-color:rgba(185,255,225,.2);color:#b9ffe1;}
+.mic-btn:before{background:linear-gradient(135deg,#ff6fae,#b9ffe1);opacity:.56;}
+.mic-core{background:rgba(4,14,18,.88);border-color:rgba(255,111,174,.72);color:#ff83bd;box-shadow:inset 0 0 20px rgba(255,111,174,.12);}
+.right.listening .mic-core{color:#b9ffe1;border-color:#b9ffe1;}
+.feed{padding:18px 19px;border-right:2px solid rgba(255,111,174,.7);border-radius:22px;}
+.feed-head{color:rgba(210,245,235,.48);font-size:.6rem;letter-spacing:.2em;}
+.feed-head i{color:#ff6fae;}
+#transcript,#reply{color:#e9fff8!important;line-height:1.55;}
+.wave i{background:#ff6fae;}
+.chip,.send{border-color:rgba(185,255,225,.2);background:rgba(6,22,26,.68);color:rgba(233,255,248,.82);}
+.chip:hover,.send:hover,.icon-btn:hover{border-color:#b9ffe1;color:#fff;background:rgba(42,100,91,.46);}
+.text-form{border-radius:18px;}
+.text-form input{color:#effff9;}
+.send{color:#b9ffe1;}
+@media(max-width:700px){.hud{padding:16px}.title{font-size:1.1rem}.right{width:64%;}}

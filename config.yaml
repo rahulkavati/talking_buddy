@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------
+#  Talking Buddy config. Edited live: no restart needed for most changes.
+# ---------------------------------------------------------------
+character:
+  name: "Pixel"
+  system_prompt: |
+    You are {name}, a warm, witty, casual companion who lives on the user's laptop.
+    Talk like a friend: one to three short sentences, no lists, no markdown, no emojis.
+    If you don't know something, say so. You have no internet unless web results
+    are included in the message.
+
+brain:
+  # Ollama's OpenAI-compatible endpoint. For LM Studio use http://localhost:1234/v1
+  base_url: "http://localhost:11434/v1"
+  model: "gemma3:4b"             # smaller and faster for voice conversation
+  api_key: "local"
+  temperature: 0.8
+  max_tokens: 48
+  history_turns: 4
+  think: false
+  keep_alive: "30m"
+
+web:
+  enabled: true                # internet is used ONLY when one of these phrases is said
+  triggers: ["search the web", "search online", "check online", "check the internet",
+             "look it up online", "look up online", "google it"]
+  max_results: 5
+
+stt:
+  whisper_repo: "mlx-community/whisper-large-v3-turbo"   # smaller/faster: mlx-community/whisper-small-mlx
+  language: "en"
+
+tts:
+  engine: "kokoro"             # local neural voice; falls back to macOS say if unavailable
+  say_voice: "Karen"        # soft, clear natural macOS voice
+  say_rate: 178              # slightly slower for a gentle, easy-to-follow delivery
+  kokoro_voice: "af_heart"
+  speed: 0.96
+
+server:
+  port: 8000

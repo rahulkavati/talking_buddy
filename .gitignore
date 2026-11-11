@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.DS_Store
+
+# Local model and avatar assets are downloaded separately.
+models/
+static/*.vrm
+static/*.png
+static/*.wav
+static/*.aiff
+static/*.mp3
+
+# Review bundles are not source files.
+*.zip

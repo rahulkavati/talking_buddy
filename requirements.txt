@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+websockets
+requests
+pyyaml
+numpy
+mlx-whisper
+ddgs
+kokoro-onnx
+soundfile
