@@ -25,9 +25,10 @@ const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a), damp = THR
 /* ---------- renderer, camera, post ---------- */
 const host = document.getElementById('canvas-container');
 host.querySelectorAll('canvas').forEach(c => c.remove());
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .78;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.style.cssText = 'position:absolute;inset:0';
@@ -190,9 +191,9 @@ scene.children.slice(meadowStart).forEach(object => { object.visible = false; })
 const referenceTexture = new THREE.TextureLoader().load('/static/soft-meadow-reference.png');
 const referencePlane = new THREE.Mesh(
   new THREE.PlaneGeometry(2, 2),
-  new THREE.MeshBasicMaterial({ map: referenceTexture, depthWrite: false })
+  new THREE.MeshBasicMaterial({ map: referenceTexture, depthWrite: false, fog: false, toneMapped: false })
 );
-referencePlane.position.set(0, 1.5, -18); referencePlane.renderOrder = -10; scene.add(referencePlane);
+referencePlane.position.set(0, 1.5, -18); referencePlane.renderOrder = -10; referencePlane.frustumCulled = false; scene.add(referencePlane);
 const fitReference = () => {
   const distance = camera.position.z - referencePlane.position.z;
   const height = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));

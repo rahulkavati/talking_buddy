@@ -77,6 +77,10 @@ body{background:#162018;color:#fff5df}
 .emote:hover{border-color:#ffe0a1;background:rgba(137,78,43,.48)}
 @media(max-width:700px){.hud{padding:16px}.right{width:64%}}
 
+/* Exact reference backdrop fallback behind the transparent WebGL avatar layer. */
+#canvas-container{background-image:url('/static/soft-meadow-reference.png');background-position:center;background-size:cover;background-repeat:no-repeat}
+#canvas-container:after{background:transparent}
+
 .emotes{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;padding:8px;border-radius:16px;width:min(100%,410px);pointer-events:auto}
 .emote{border:1px solid rgba(185,255,225,.2);background:rgba(6,22,26,.68);color:rgba(233,255,248,.85);border-radius:10px;padding:.38rem .6rem;font:.68rem ui-monospace,monospace;cursor:pointer;transition:transform .15s,border-color .15s}
 .emote:hover{border-color:#b9ffe1;transform:translateY(-2px);background:rgba(42,100,91,.46)}
