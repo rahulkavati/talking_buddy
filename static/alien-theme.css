@@ -45,6 +45,38 @@ body{
 .send{color:#b9ffe1;}
 @media(max-width:700px){.hud{padding:16px}.title{font-size:1.1rem}.right{width:64%;}}
 
+/* Clay World: warm, tactile golden-hour HUD */
+:root{
+  --red:#ff9b66;
+  --amber:#ffe0a1;
+  --panel:rgba(46,38,28,.54);
+  --line:rgba(255,224,161,.28);
+}
+body{background:#162018;color:#fff5df}
+#canvas-container{background:linear-gradient(180deg,#6f9aaa 0%,#c28d72 42%,#6ea44c 100%)}
+.hud{padding:30px 36px 32px}
+.hud:after{background:radial-gradient(ellipse at center,transparent 28%,rgba(42,28,19,.46) 100%)}
+.glass{background:rgba(52,38,28,.42);border:1px solid rgba(255,232,185,.34);box-shadow:0 18px 55px rgba(57,35,17,.28),inset 0 1px rgba(255,255,255,.18)}
+.logo{color:#ffe5ae;border-color:rgba(255,224,161,.52);box-shadow:0 0 24px rgba(255,198,113,.22)}
+.eyebrow{color:rgba(255,241,210,.72);letter-spacing:.22em}
+.title{font-family:ui-sans-serif,system-ui,sans-serif;color:#fff4dc;text-shadow:0 2px 18px rgba(88,45,24,.48)}
+.badge{color:#ffe0a1;border-color:rgba(255,224,161,.46);background:rgba(255,224,161,.12)}
+.connection{color:rgba(255,241,210,.72)}
+.dot{background:#ffb477;box-shadow:0 0 12px #ffb477}
+.icon-btn{border-color:rgba(255,224,161,.3);color:#ffe0a1}
+.mic-btn:before{background:linear-gradient(135deg,#ff9b66,#ffe0a1);opacity:.68}
+.mic-core{background:rgba(53,31,22,.82);border-color:rgba(255,198,126,.86);color:#ffd39c;box-shadow:inset 0 0 22px rgba(255,176,91,.16)}
+.right.listening .mic-core{color:#fff0bd;border-color:#fff0bd}
+.feed{border-right:2px solid rgba(255,184,112,.78)}
+.feed-head{color:rgba(255,241,210,.62)}
+.feed-head i,.wave i{color:#ffb477;background:#ffb477}
+#transcript,#reply{color:#fff2d8!important}
+.chip,.send{border-color:rgba(255,224,161,.26);background:rgba(52,38,28,.5);color:rgba(255,245,225,.9)}
+.chip:hover,.send:hover,.icon-btn:hover{border-color:#ffe0a1;color:#fff;background:rgba(137,78,43,.48)}
+.emote{border-color:rgba(255,224,161,.26);background:rgba(52,38,28,.5);color:rgba(255,245,225,.9)}
+.emote:hover{border-color:#ffe0a1;background:rgba(137,78,43,.48)}
+@media(max-width:700px){.hud{padding:16px}.right{width:64%}}
+
 .emotes{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;padding:8px;border-radius:16px;width:min(100%,410px);pointer-events:auto}
 .emote{border:1px solid rgba(185,255,225,.2);background:rgba(6,22,26,.68);color:rgba(233,255,248,.85);border-radius:10px;padding:.38rem .6rem;font:.68rem ui-monospace,monospace;cursor:pointer;transition:transform .15s,border-color .15s}
 .emote:hover{border-color:#b9ffe1;transform:translateY(-2px);background:rgba(42,100,91,.46)}
