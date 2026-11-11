@@ -199,7 +199,7 @@ document.querySelectorAll('.emote').forEach(b => b.addEventListener('click', () 
 addEventListener('keydown', e => { if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName)) return; const n = +e.key; if (n >= 1 && n <= 7) gesture(Object.keys(G)[n - 1]); });
 
 /* ---------- camera director + touch zones ---------- */
-const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1, dist: 6.6, ty: 1.45, drag: false, moved: 0, idle: 0, close: false };
+const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1, dist: 7.8, ty: 1.45, drag: false, moved: 0, idle: 0, close: false };
 const dom = renderer.domElement, ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
 addEventListener('pointermove', e => {
   ptr.x = (e.clientX / innerWidth - .5) * 2; ptr.y = -(e.clientY / innerHeight - .5) * 2;
@@ -274,7 +274,7 @@ function frame() {
 
   // camera director
   const aspect = innerWidth / innerHeight, wide = aspect < .8 ? 1.35 : 1;
-  const base = cam.close ? 3.45 : { idle: 5.55, listening: 5.0, thinking: 5.85, speaking: 4.6 }[mode], ty = cam.close ? 1.98 : { idle: 1.42, listening: 1.48, thinking: 1.42, speaking: 1.68 }[mode];
+  const base = cam.close ? 4.6 : { idle: 7.8, listening: 7.25, thinking: 7.5, speaking: 6.7 }[mode], ty = cam.close ? 1.98 : { idle: 1.42, listening: 1.48, thinking: 1.42, speaking: 1.68 }[mode];
   cam.dist = damp(cam.dist, base * wide * cam.zoom, 2.2, dt); cam.ty = damp(cam.ty, ty, 2.2, dt);
   if (!cam.drag) { cam.idle += dt; if (cam.idle > 5) { cam.az = damp(cam.az, 0, 1.2, dt); cam.el = damp(cam.el, 0, 1.2, dt); } }
   const az = cam.az + ptr.sx * .06, el = cam.el + .06 + ptr.sy * .02;
@@ -288,4 +288,3 @@ function frame() {
 frame();
 
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
-
