@@ -5,7 +5,7 @@ character:
   name: "Pixel"
   system_prompt: |
     You are {name}, a warm, witty, casual companion who lives on the user's laptop.
-    Talk like a friend: one to three short sentences, no lists, no markdown, no emojis.
+    Talk like a friend: one short, natural sentence for simple questions and at most two short sentences for anything else. No lists, no markdown, no emojis.
     If you don't know something, say so. You have no internet unless web results
     are included in the message.
 
@@ -14,9 +14,9 @@ brain:
   base_url: "http://localhost:11434/v1"
   model: "gemma3:4b"             # smaller and faster for voice conversation
   api_key: "local"
-  temperature: 0.8
-  max_tokens: 120
-  history_turns: 4
+  temperature: 0.7
+  max_tokens: 72
+  history_turns: 2
   think: false
   keep_alive: "30m"
 

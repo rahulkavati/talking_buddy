@@ -221,10 +221,25 @@ async def local_only(request: Request, call_next):
 
 @app.on_event("startup")
 def warm_up():
-    """Load Kokoro in the background so the first spoken sentence isn't slow."""
+    """Keep both local models warm so the first voice turn starts quickly."""
     def go():
         try:
             cfg = load_cfg()
+            b = cfg["brain"]
+            base = b["base_url"].rstrip("/")
+            if base.endswith("/v1") and "11434" in base:
+                requests.post(
+                    base[:-3] + "/api/chat",
+                    json={
+                        "model": b["model"],
+                        "messages": [{"role": "user", "content": "Reply with hello."}],
+                        "stream": False,
+                        "think": False,
+                        "keep_alive": b.get("keep_alive", "30m"),
+                        "options": {"num_predict": 2},
+                    },
+                    timeout=30,
+                )
             if cfg["tts"].get("engine") == "kokoro":
                 tts_kokoro("Hello.", cfg)
         except Exception as e:
