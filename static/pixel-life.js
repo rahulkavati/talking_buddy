@@ -51,7 +51,7 @@ scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x6a8f3a, 1.25));
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bokeh = new BokehPass(scene, camera, { focus: 6, aperture: .0022, maxblur: .012 });
+const bokeh = new BokehPass(scene, camera, { focus: 6, aperture: .0012, maxblur: .006 });
 composer.addPass(bokeh);
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), .22, .5, .92));
 composer.addPass(new OutputPass());
@@ -124,11 +124,11 @@ for (let i = 0; i < tp.count; i++) { const x = tp.getX(i), z = tp.getZ(i); tp.se
 tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3)); tg.computeVertexNormals();
 const ground = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })); ground.receiveShadow = true; scene.add(ground);
 
-const GN = 30000;
+const GN = 22000;
 const bg = new THREE.BufferGeometry();
 bg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array([
-  -.018, 0, 0,  .018, 0, 0,  .014, .36, 0, -.014, .36, 0,  .005, .72, 0, -.005, .72, 0,
-   0, 0,-.018,   0, 0, .018,  0, .36, .014,  0, .36,-.014,  0, .72, .005,  0, .72,-.005
+  -.014, 0, 0,  .014, 0, 0,  .011, .25, 0, -.011, .25, 0,  .004, .5, 0, -.004, .5, 0,
+   0, 0,-.014,   0, 0, .014,  0, .25, .011,  0, .25,-.011,  0, .5, .004,  0, .5,-.004
 ]), 3));
 bg.setIndex([0,1,2,0,2,3,3,2,4,3,4,5,6,7,8,6,8,9,9,8,10,9,10,11]); bg.computeVertexNormals();
 const windU = { value: 0 };
@@ -139,8 +139,9 @@ grassMat.onBeforeCompile = sh => {
 };
 const grass = new THREE.InstancedMesh(bg, grassMat, GN), tmp = new THREE.Object3D(), col = new THREE.Color();
 for (let i = 0; i < GN; i++) {
-  const r = Math.sqrt(Math.random()) * 24, a = rnd(0, TAU), x = Math.cos(a) * r, z = Math.sin(a) * r;
-  tmp.position.set(x, hgt(x, z), z); tmp.rotation.y = rnd(0, Math.PI); tmp.rotation.x = rnd(-.12, .12); tmp.scale.setScalar(rnd(.58, 1.35)); tmp.updateMatrix();
+  const r = 1.65 + Math.sqrt(Math.random()) * 22, a = rnd(0, TAU), x = Math.cos(a) * r, z = Math.sin(a) * r;
+  const nearCamera = THREE.MathUtils.smoothstep(z, 2.5, 12);
+  tmp.position.set(x, hgt(x, z), z); tmp.rotation.y = rnd(0, Math.PI); tmp.rotation.x = rnd(-.12, .12); tmp.scale.setScalar(rnd(.58, 1.25) * (1 - nearCamera * .62)); tmp.updateMatrix();
   grass.setMatrixAt(i, tmp.matrix); grass.setColorAt(i, col.setHSL(rnd(.23, .34), rnd(.55, .78), rnd(.22, .45)));
 }
 grass.receiveShadow = true; scene.add(grass);
