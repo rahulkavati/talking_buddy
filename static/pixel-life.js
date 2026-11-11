@@ -124,20 +124,25 @@ for (let i = 0; i < tp.count; i++) { const x = tp.getX(i), z = tp.getZ(i); tp.se
 tg.setAttribute('color', new THREE.Float32BufferAttribute(tc, 3)); tg.computeVertexNormals();
 const ground = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })); ground.receiveShadow = true; scene.add(ground);
 
-const GN = 15000, bg = new THREE.PlaneGeometry(.07, .55, 1, 3).translate(0, .275, 0);
-const bp = bg.attributes.position; for (let i = 0; i < bp.count; i++) bp.setX(i, bp.getX(i) * (1 - bp.getY(i) / .55 * .85));
-bg.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(bp.count * 3).map((_, i) => i % 3 === 1 ? 1 : 0), 3));
+const GN = 18000;
+const bg = new THREE.BufferGeometry();
+bg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array([
+  -.05, 0, 0,  .05, 0, 0,  .035, .62, 0, -.035, .62, 0,
+   0, 0,-.05,   0, 0, .05,  0, .62, .035,  0, .62,-.035
+]), 3));
+bg.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]); bg.computeVertexNormals();
 const windU = { value: 0 };
-const grassMat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: .9 });
+const grassMat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: .96, metalness: 0 });
 grassMat.onBeforeCompile = sh => {
   sh.uniforms.uT = windU;
-  sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat hh=position.y;vec4 ip=instanceMatrix[3];transformed.x+=sin(uT*1.6+ip.x*.8+ip.z*.6)*hh*hh*.55;transformed.z+=sin(uT*1.2+ip.z*.7)*hh*hh*.25;');
+  sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nfloat hh=position.y;vec4 ip=instanceMatrix[3];float gust=sin(uT*1.35+ip.x*.34+ip.z*.27)+sin(uT*.72+ip.z*.52);transformed.x+=gust*hh*hh*.24;transformed.z+=sin(uT*1.1+ip.z*.64+ip.x*.18)*hh*hh*.16;');
 };
 const grass = new THREE.InstancedMesh(bg, grassMat, GN), tmp = new THREE.Object3D(), col = new THREE.Color();
 for (let i = 0; i < GN; i++) {
   const r = Math.sqrt(Math.random()) * 24, a = rnd(0, TAU), x = Math.cos(a) * r, z = Math.sin(a) * r;
-  tmp.position.set(x, hgt(x, z), z); tmp.rotation.y = rnd(0, TAU); tmp.scale.set(1, r < 1 ? .4 : rnd(.5, 1.15), 1); tmp.updateMatrix();
-  grass.setMatrixAt(i, tmp.matrix); grass.setColorAt(i, col.setHSL(rnd(.24, .33), rnd(.45, .6), rnd(.28, .46)));
+  const foreground = THREE.MathUtils.smoothstep(10 - r, 0, 10);
+  tmp.position.set(x, hgt(x, z), z); tmp.rotation.y = rnd(0, Math.PI); tmp.scale.setScalar(r < 1 ? .5 : rnd(.72, 1.25) + foreground * .35); tmp.updateMatrix();
+  grass.setMatrixAt(i, tmp.matrix); grass.setColorAt(i, col.setHSL(rnd(.23, .32), rnd(.52, .72), rnd(.23, .43) + foreground * .05));
 }
 grass.receiveShadow = true; scene.add(grass);
 
