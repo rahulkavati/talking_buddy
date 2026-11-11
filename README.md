@@ -54,3 +54,10 @@ Name and personality live in config.yaml under `character`.
 - Use push-to-talk (hold) so the mic doesn't hear the bot's own voice.
 - Replies are kept short for speed. Raise `max_tokens` if you want longer answers.
 - Everything binds to 127.0.0.1 only; nothing is exposed to your network.
+
+## v2: new scene
+
+- `python3 fetch_vendor.py` once (internet) to make the 3D libraries local.
+- Click the character, use the emote buttons, or press keys 1-7 for gestures.
+- Say hi / thanks / haha / wow and the character reacts. Cursor movement makes it look at you.
+- `/?local` forces offline Whisper speech input.

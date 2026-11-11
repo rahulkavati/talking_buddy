@@ -9,7 +9,9 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
+from urllib.parse import urlparse
 
 import numpy as np
 import requests
@@ -17,13 +19,14 @@ import uvicorn
 import yaml
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).parent
 app = FastAPI()
 HISTORY = []          # [{"role": "...", "content": "..."}]
 _kokoro = None
+_kokoro_lock = threading.Lock()
 
 
 def load_cfg():
@@ -110,23 +113,25 @@ def wants_web(cfg, text):
     return None
 
 
+def build_prompt(cfg, text):
+    """Offline by default. Touches the web ONLY when a trigger phrase is spoken.
+    Shared by the HTTP path and the realtime WebSocket path."""
+    trig = wants_web(cfg, text)
+    if not trig:
+        return text, False
+    query = re.sub(re.escape(trig), "", text, flags=re.I).strip(" ,.?!") or text
+    results = web_search(query, cfg["web"].get("max_results", 5))
+    if results:
+        return (f"{text}\n\n[Web search results, use these and mention you looked it up]\n{results}", True)
+    return (f"{text}\n\n[The user asked for a web search but the internet is "
+            "unavailable. Say so briefly, then answer from memory if you can.]", False)
+
+
 def answer(text):
     cfg = load_cfg()
     name = cfg["character"]["name"]
     system = cfg["character"]["system_prompt"].replace("{name}", name)
-    used_web = False
-    prompt = text
-
-    trig = wants_web(cfg, text)
-    if trig:
-        query = re.sub(re.escape(trig), "", text, flags=re.I).strip(" ,.?!") or text
-        results = web_search(query, cfg["web"].get("max_results", 5))
-        if results:
-            used_web = True
-            prompt = f"{text}\n\n[Web search results, use these and mention you looked it up]\n{results}"
-        else:
-            prompt = (f"{text}\n\n[The user asked for a web search but the internet is "
-                      "unavailable. Say so briefly, then answer from memory if you can.]")
+    prompt, used_web = build_prompt(cfg, text)
 
     turns = cfg["brain"].get("history_turns", 8) * 2
     messages = [{"role": "system", "content": system}] + HISTORY[-turns:] + [
@@ -161,9 +166,10 @@ def tts_kokoro(text, cfg):
     global _kokoro
     import soundfile as sf
     from kokoro_onnx import Kokoro
-    if _kokoro is None:
-        _kokoro = Kokoro(str(ROOT / "models/kokoro-v1.0.onnx"),
-                         str(ROOT / "models/voices-v1.0.bin"))
+    with _kokoro_lock:                     # preload + parallel sentences must not double-load
+        if _kokoro is None:
+            _kokoro = Kokoro(str(ROOT / "models/kokoro-v1.0.onnx"),
+                             str(ROOT / "models/voices-v1.0.bin"))
     t = cfg["tts"]
     samples, sr = _kokoro.create(text, voice=t.get("kokoro_voice", "af_heart"),
                                  speed=t.get("speed", 1.0), lang="en-us")
@@ -201,12 +207,40 @@ def transcribe(audio, sr, cfg):
 
 
 # ----------------------------- routes --------------------------------
+def _origin_ok(origin):
+    """Block other websites from talking to your local server (cross-site requests)."""
+    return not origin or urlparse(origin).hostname in ("localhost", "127.0.0.1")
+
+
+@app.middleware("http")
+async def local_only(request: Request, call_next):
+    if not _origin_ok(request.headers.get("origin")):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    return await call_next(request)
+
+
+@app.on_event("startup")
+def warm_up():
+    """Load Kokoro in the background so the first spoken sentence isn't slow."""
+    def go():
+        try:
+            cfg = load_cfg()
+            if cfg["tts"].get("engine") == "kokoro":
+                tts_kokoro("Hello.", cfg)
+        except Exception as e:
+            print("warm-up skipped:", e)
+    threading.Thread(target=go, daemon=True).start()
+
+
 @app.get("/")
 def index():
     html = (ROOT / "static" / "index.html").read_text()
-    html = html.replace("ARES // VRM", "ALIEN // VRM")
-    html = html.replace("</head>", '<link rel="stylesheet" href="/static/alien-theme.css"></head>')
-    html = html.replace("</body>", '<script type="module" src="/static/scene-enhancements.js"></script><script src="/static/fast-chat.js"></script><script src="/static/realtime.js"></script></body>')
+    # If you ran fetch_vendor.py, load three.js locally so the app works fully offline.
+    if (ROOT / "static" / "vendor" / "three" / "build" / "three.module.js").exists():
+        html = (html
+                .replace("https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "/static/vendor/three/build/three.module.js")
+                .replace("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/", "/static/vendor/three/examples/jsm/")
+                .replace("https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js", "/static/vendor/three-vrm/lib/three-vrm.module.min.js"))
     return HTMLResponse(html)
 
 
@@ -257,6 +291,9 @@ def api_reset():
 @app.websocket("/ws/realtime")
 async def realtime_socket(websocket: WebSocket):
     """Duplex stream with cancellable LLM generation and queued sentence audio."""
+    if not _origin_ok(websocket.headers.get("origin")):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     current_turn = None
     try:
@@ -286,10 +323,13 @@ async def stream_turn(websocket, text):
     name = cfg["character"]["name"]
     system = cfg["character"]["system_prompt"].replace("{name}", name)
     turns = cfg["brain"].get("history_turns", 8) * 2
-    messages = [{"role": "system", "content": system}] + HISTORY[-turns:] + [
-        {"role": "user", "content": text}]
     await websocket.send_json({"type": "user_text", "text": text})
     await websocket.send_json({"type": "state", "value": "THINKING"})
+    prompt, used_web = await run_in_threadpool(build_prompt, cfg, text)
+    if used_web:
+        await websocket.send_json({"type": "web", "used": True})
+    messages = [{"role": "system", "content": system}] + HISTORY[-turns:] + [
+        {"role": "user", "content": prompt}]
     full_reply = ""
     sentence = ""
     audio_tasks = []
@@ -323,7 +363,15 @@ async def stream_turn(websocket, text):
             task.cancel()
         raise
     except requests.exceptions.ConnectionError:
-        await websocket.send_json({"type": "error", "message": "I can't reach Ollama."})
+        await websocket.send_json({"type": "error", "message": "I can't reach Ollama. Is it running?"})
+    except Exception as e:                  # never leave the UI hanging on THINKING
+        await websocket.send_json({"type": "error", "message": f"Brain error: {e}"})
+    finally:
+        if iterator is not None:
+            try:
+                iterator.close()
+            except Exception:
+                pass
 
 
 async def synthesize_sentence(sentence):
@@ -331,6 +379,8 @@ async def synthesize_sentence(sentence):
 
 
 async def send_audio_result(websocket, wav):
+    if not wav:
+        return
     await websocket.send_json({"type": "state", "value": "SPEAKING"})
     await websocket.send_json({"type": "audio", "audio": base64.b64encode(wav).decode()})
 

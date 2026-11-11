@@ -50,6 +50,7 @@
           activeSource = source;
           source.buffer = buffer;
           source.connect(audioContext.destination);
+          window.pixelTap?.(source, audioContext);
           source.onended = resolve;
           window.animateSpeaking?.(true);
           source.start();
@@ -128,6 +129,7 @@
         const message = JSON.parse(event.data);
         if (message.type === 'user_text') {
           transcript.textContent = message.text;
+          window.pixelUser?.(message.text);
           document.getElementById('reply')?.remove();
           currentReply = null;
           interruptAudio();
@@ -136,6 +138,7 @@
         } else if (message.type === 'token') {
           // Voice-first mode: keep Pixel's response hidden until it is spoken.
           // The user's most recent transcript remains visible above.
+          window.pixelToken?.(message.text);
         } else if (message.type === 'audio') {
           audioQueue.push(message.audio);
           playAudioQueue().catch(error => console.warn('Streaming audio failed:', error));
@@ -176,13 +179,21 @@
       }
       if (finalText.trim() && listening) sendText(finalText);
     };
+    // Chrome's SpeechRecognition sends audio to Google. If it fails (offline), use local Whisper.
+    recognition.onerror = e => {
+      if (listening && ['network', 'service-not-allowed'].includes(e.error)) {
+        stopRealtime();
+        setStatus('ONLINE CAPTIONS UNAVAILABLE // USING LOCAL WHISPER');
+        fallbackTalk?.();
+      }
+    };
     recognition.onend = () => {
       if (listening) try { recognition.start(); } catch (_) {}
     };
   }
 
   async function startRealtime() {
-    if (!SR) {
+    if (!SR || new URLSearchParams(location.search).has('local')) {   // add ?local to the URL to force offline Whisper
       if (fallbackTalk) return fallbackTalk();
       setStatus('BROWSER SPEECH INPUT UNAVAILABLE');
       return;

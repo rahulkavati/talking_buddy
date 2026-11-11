@@ -15,7 +15,7 @@ brain:
   model: "gemma3:4b"             # smaller and faster for voice conversation
   api_key: "local"
   temperature: 0.8
-  max_tokens: 48
+  max_tokens: 120
   history_turns: 4
   think: false
   keep_alive: "30m"

@@ -15,6 +15,7 @@ async function playBase64Audio(base64) {
   const source = playbackContext.createBufferSource();
   source.buffer = buffer;
   source.connect(playbackContext.destination);
+  window.pixelTap?.(source, playbackContext);
   window.animateSpeaking?.(true);
   source.onended = () => window.animateSpeaking?.(false);
   source.start();
