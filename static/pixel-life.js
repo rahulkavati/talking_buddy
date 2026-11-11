@@ -26,9 +26,9 @@ const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a), damp = THR
 const host = document.getElementById('canvas-container');
 host.querySelectorAll('canvas').forEach(c => c.remove());
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .62;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .78;
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.domElement.style.cssText = 'position:absolute;inset:0';
 host.prepend(renderer.domElement);
@@ -70,11 +70,11 @@ const noiseTex = (() => {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2); return t;
 })();
 const clay = (color, o = {}) => new THREE.MeshPhysicalMaterial({
-  color, roughness: .62, sheen: 1, sheenRoughness: .5, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .5),
-  clearcoat: .12, clearcoatRoughness: .6, bumpMap: noiseTex, bumpScale: .5, emissive: new THREE.Color(color).multiplyScalar(.07), ...o
+  color, roughness: .48, sheen: .72, sheenRoughness: .38, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .58),
+  clearcoat: .22, clearcoatRoughness: .42, bumpMap: noiseTex, bumpScale: .16, emissive: new THREE.Color(color).multiplyScalar(.035), ...o
 });
-const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 40, 28), mat); m.scale.set(sx, sy, sz); m.castShadow = m.receiveShadow = true; return m; };
-const caps = (r, l, mat) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 10, 20), mat); m.castShadow = m.receiveShadow = true; return m; };
+const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 56, 40), mat); m.scale.set(sx, sy, sz); m.castShadow = m.receiveShadow = true; return m; };
+const caps = (r, l, mat) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 16, 28), mat); m.castShadow = m.receiveShadow = true; return m; };
 const at = (o, x, y, z, parent) => { o.position.set(x, y, z); parent?.add(o); return o; };
 
 /* ---------- the buddy (original design: bearded, leaf sprout, big violet eyes) ---------- */
@@ -82,31 +82,31 @@ const M = { skin: clay(0xf0dcb8), hair: clay(0x4a3128), sweater: clay(0x3f9f9a),
   eye: new THREE.MeshPhysicalMaterial({ color: 0xe45bd8, roughness: .15, clearcoat: 1, emissive: 0x6a1668, emissiveIntensity: .5 }), white: new THREE.MeshBasicMaterial({ color: 0xffffff }) };
 const root = new THREE.Group(); scene.add(root);
 const torso = at(new THREE.Group(), 0, .42, 0, root);
-const body = at(ball(.34, M.sweater, 1.1, 1.25, .95), 0, .42, 0, torso); body.userData.zone = 'body';
+const body = at(ball(.38, M.sweater, 1.14, 1.2, .98), 0, .42, 0, torso); body.userData.zone = 'body';
 [1, -1].forEach(s => {                                      // legs + shoes
   const leg = at(caps(.11, .2, M.pants), s * .17, .22, 0, root); at(ball(.15, M.shoe, 1.1, .6, 1.6), s * .17, .05, .07, root);
 });
 const arm = {}, fore = {};
 [['L', 1], ['R', -1]].forEach(([k, s]) => {                 // arms: shoulder pivot -> forearm pivot -> hand
-  arm[k] = at(new THREE.Group(), s * .38, .62, 0, torso);
-  const up = at(caps(.1, .16, M.sweater), 0, -.14, 0, arm[k]); up.userData.zone = 'body';
+  arm[k] = at(new THREE.Group(), s * .42, .64, 0, torso);
+  const up = at(caps(.115, .18, M.sweater), 0, -.14, 0, arm[k]); up.userData.zone = 'body';
   fore[k] = at(new THREE.Group(), 0, -.27, 0, arm[k]);
-  at(caps(.09, .12, M.sweater), 0, -.1, 0, fore[k]);
-  at(ball(.115, M.skin), 0, -.27, 0, fore[k]).userData.zone = 'body';
+  at(caps(.102, .14, M.sweater), 0, -.1, 0, fore[k]);
+  at(ball(.13, M.skin), 0, -.27, 0, fore[k]).userData.zone = 'body';
 });
 const head = at(new THREE.Group(), 0, .86, 0, torso);
-at(ball(.62, M.skin, 1.12, 1, 1), 0, .55, 0, head).userData.zone = 'head';
-[1, -1].forEach(s => at(ball(.17, M.skin, .7, 1, .6), s * .72, .5, 0, head));                 // ears
-at(ball(.62, M.hair, 1.1, .78, 1), 0, .2, .06, head);                                        // beard
-at(ball(.27, M.skin, 1.2, .8, .7), 0, .31, .55, head);                                       // muzzle patch
+at(ball(.69, M.skin, 1.16, 1.02, 1.02), 0, .56, 0, head).userData.zone = 'head';
+[1, -1].forEach(s => at(ball(.2, M.skin, .72, 1, .62), s * .79, .5, 0, head));                 // ears
+at(ball(.67, M.hair, 1.1, .8, 1), 0, .2, .06, head);                                        // beard
+at(ball(.3, M.skin, 1.22, .82, .72), 0, .32, .57, head);                                       // muzzle patch
 [1, -1].forEach(s => at(ball(.12, M.hair, 1.3, .8, .8), s * .11, .43, .6, head));           // moustache
 at(ball(.1, M.skin, 1.2, .9, 1), 0, .47, .66, head);                                         // nose
 const mouth = at(ball(1, M.mouth), 0, .28, .72, head);
-const hairCap = at(ball(.66, M.hair, 1.14, .72, 1), 0, .86, -.1, head);
-for (let i = 0; i < 5; i++) at(ball(.15, M.hair, 1.2, .8, 1), (i - 2) * .26, .96 - Math.abs(i - 2) * .03, .46, head);  // fringe tufts
+const hairCap = at(ball(.7, M.hair, 1.14, .72, 1), 0, .86, -.1, head);
+for (let i = 0; i < 5; i++) at(ball(.17, M.hair, 1.2, .8, 1), (i - 2) * .28, .96 - Math.abs(i - 2) * .03, .46, head);  // fringe tufts
 const eyes = [1, -1].map(s => {
-  const g = at(new THREE.Group(), s * .25, .62, .57, head);
-  at(ball(.14, M.eye, .9, 1.2, .6), 0, 0, 0, g); at(ball(.045, M.white), .04, .07, .07, g); at(ball(.022, M.white), -.04, -.05, .07, g); return g;
+  const g = at(new THREE.Group(), s * .28, .63, .61, head);
+  at(ball(.155, M.eye, .9, 1.22, .62), 0, 0, 0, g); at(ball(.052, M.white), .045, .075, .075, g); at(ball(.024, M.white), -.045, -.05, .075, g); return g;
 });
 const brows = [1, -1].map(s => { const b = at(caps(.028, .13, M.hair), s * .26, .83, .58, head); b.rotation.z = Math.PI / 2; b.castShadow = true; return b; });
 const sprout = at(new THREE.Group(), 0, 1.3, -.05, head);
