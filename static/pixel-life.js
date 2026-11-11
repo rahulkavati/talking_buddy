@@ -81,7 +81,7 @@ const at = (o, x, y, z, parent) => { o.position.set(x, y, z); parent?.add(o); re
 /* ---------- the buddy (original design: bearded, leaf sprout, big violet eyes) ---------- */
 const M = { skin: clay(0xf4dfc1), hair: clay(0x5a3a31), sweater: clay(0x15999b), pants: clay(0x553b35), shoe: clay(0x3c292b), leaf: clay(0x8dce69), mouth: clay(0x6a302c, { sheen: 0 }),
   eye: new THREE.MeshPhysicalMaterial({ color: 0xf05abf, roughness: .12, clearcoat: 1, clearcoatRoughness: .12, emissive: 0xb51b7f, emissiveIntensity: .28 }), white: new THREE.MeshBasicMaterial({ color: 0xfff9ed }) };
-const root = new THREE.Group(); scene.add(root);
+const root = new THREE.Group(); root.position.x = -.72; scene.add(root);
 const torso = at(new THREE.Group(), 0, .42, 0, root);
 const body = at(ball(.38, M.sweater, 1.14, 1.2, .98), 0, .42, 0, torso); body.userData.zone = 'body';
 [1, -1].forEach(s => {                                      // legs + shoes
@@ -113,8 +113,42 @@ const brows = [1, -1].map(s => { const b = at(caps(.028, .13, M.hair), s * .26, 
 const sprout = at(new THREE.Group(), 0, 1.3, -.05, head);
 at(caps(.016, .18, M.leaf), 0, .1, 0, sprout);
 [1, -1].forEach(s => { const l = at(ball(.09, M.leaf, 1.7, .5, .9), s * .1, .22, 0, sprout); l.rotation.z = s * .5; });
+
+/* ---------- alternate character candidate: rounded, curious sidekick ---------- */
+const C = {
+  skin: clay(0xf5c8aa), body: clay(0x8d72d3), belly: clay(0xa989e2), hair: clay(0x3d2f4d),
+  scarf: clay(0xf0a15b), shoe: clay(0x49334c), mouth: clay(0x63334b, { sheen: 0 }),
+  eye: new THREE.MeshPhysicalMaterial({ color: 0x7ee8e2, roughness: .1, clearcoat: 1, clearcoatRoughness: .12, emissive: 0x168e96, emissiveIntensity: .2 }),
+  white: new THREE.MeshBasicMaterial({ color: 0xfff9ed })
+};
+const companionRoot = new THREE.Group(); companionRoot.position.set(.92, 0, .08); companionRoot.scale.setScalar(.92); scene.add(companionRoot);
+const companionBody = at(ball(.36, C.body, 1.02, 1.16, .92), 0, .42, 0, companionRoot);
+at(ball(.27, C.belly, 1.02, 1.12, .5), 0, .4, .31, companionRoot);
+[-1, 1].forEach(s => { at(caps(.1, .16, C.body), s * .15, .2, 0, companionRoot); at(ball(.14, C.shoe, 1.05, .58, 1.35), s * .16, .05, .07, companionRoot); });
+const companionArms = [-1, 1].map(s => {
+  const g = at(new THREE.Group(), s * .36, .58, 0, companionRoot);
+  at(caps(.095, .16, C.body), 0, -.16, 0, g); at(ball(.115, C.skin), 0, -.34, .02, g); return g;
+});
+const companionHead = at(new THREE.Group(), 0, .8, 0, companionRoot);
+at(ball(.55, C.skin, 1.08, 1, .98), 0, .48, 0, companionHead);
+at(ball(.54, C.hair, 1.1, .74, .98), 0, .78, -.04, companionHead);
+[-1, 1].forEach(s => {
+  const ear = at(ball(.18, C.hair, .62, 1.35, .72), s * .5, .72, .02, companionHead);
+  ear.rotation.z = s * .22;
+});
+const companionEyes = [-1, 1].map(s => {
+  const g = at(new THREE.Group(), s * .2, .52, .5, companionHead);
+  at(ball(.12, C.eye, .9, 1.18, .62), 0, 0, 0, g);
+  at(ball(.038, C.white), .035, .06, .07, g); return g;
+});
+const companionMouth = at(ball(1, C.mouth), 0, .27, .61, companionHead);
+const companionScarf = at(caps(.1, .22, C.scarf), 0, .03, .05, companionRoot); companionScarf.rotation.z = Math.PI / 2;
+const antennae = [-1, 1].map(s => {
+  const g = at(new THREE.Group(), s * .17, 1.25, 0, companionHead);
+  at(caps(.018, .16, C.scarf), 0, .1, 0, g); at(ball(.065, C.scarf), 0, .22, 0, g); return g;
+});
 const blob = new THREE.Mesh(new THREE.CircleGeometry(.9, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(0,0,0,.4)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })(), transparent: true, depthWrite: false }));
-blob.position.y = .012; scene.add(blob);
+blob.position.set(-.72, .012, 0); scene.add(blob);
 
 /* ---------- meadow ---------- */
 const hgt = (x, z) => (sn(x * .13 + sn(z * .07)) * .6 + Math.cos(z * .17) * .3) * THREE.MathUtils.smoothstep(Math.hypot(x, z), 3, 11);
@@ -261,6 +295,16 @@ function frame() {
   root.scale.set(1 + sq * .05, 1 - sq * .07, 1 + sq * .05); root.position.y = bounce;
   torso.scale.y = 1 + sn(t * 1.3) * .012; sprout.rotation.z = sn(t * 1.4) * .15 + ptr.sx * .1; sprout.rotation.x = sn(t * 1.1) * .1;
   blob.scale.setScalar(1 - bounce * 2);
+  const companionTalk = speaking ? Math.abs(sn(t * 5.5)) * .035 : 0;
+  companionRoot.position.y = .02 + sn(t * 1.25 + 1) * .025 + companionTalk;
+  companionRoot.rotation.z = sn(t * .72 + 1) * .025;
+  companionHead.rotation.set(-ptr.sy * .08 + sn(t * .8) * .018, ptr.sx * .16, sn(t * .65) * .025);
+  companionArms[0].rotation.z = .1 + sn(t * .9) * .035 + companionTalk * 1.4;
+  companionArms[1].rotation.z = -.1 + sn(t * .9 + 1) * .035 - companionTalk * 1.4;
+  antennae[0].rotation.z = sn(t * 1.3) * .16;
+  antennae[1].rotation.z = sn(t * 1.3 + 1) * .16;
+  companionMouth.scale.set(.1 * (1.35 + companionTalk * 7), .1 * (.3 + companionTalk * 4), .05);
+  companionEyes.forEach((eye, i) => { eye.scale.y = .94 + sn(t * .55 + i * 1.7) * .035; });
 
   // face
   vt -= dt; if (vt < 0) { vi = (vi + 1 + Math.floor(Math.random() * 4)) % 5; vt = rnd(.07, .14); }
