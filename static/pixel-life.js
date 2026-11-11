@@ -116,12 +116,14 @@ at(caps(.016, .18, M.leaf), 0, .1, 0, sprout);
 
 /* ---------- alternate character candidate: rounded, curious sidekick ---------- */
 const C = {
-  skin: clay(0xf5c8aa), body: clay(0x8d72d3), belly: clay(0xa989e2), hair: clay(0x3d2f4d),
-  scarf: clay(0xf0a15b), shoe: clay(0x49334c), mouth: clay(0x63334b, { sheen: 0 }),
-  eye: new THREE.MeshPhysicalMaterial({ color: 0x7ee8e2, roughness: .1, clearcoat: 1, clearcoatRoughness: .12, emissive: 0x168e96, emissiveIntensity: .2 }),
+  skin: clay(0xf5d2b9), body: clay(0xe8758f), belly: clay(0xf29d59), hair: clay(0x493244),
+  scarf: clay(0x52c5c3), shoe: clay(0x62394f), mouth: clay(0x63334b, { sheen: 0 }),
+  eye: new THREE.MeshPhysicalMaterial({ color: 0xffbd4e, roughness: .1, clearcoat: 1, clearcoatRoughness: .12, emissive: 0xd55a2e, emissiveIntensity: .22 }),
+  lens: new THREE.MeshPhysicalMaterial({ color: 0xf8a04b, roughness: .14, clearcoat: 1, clearcoatRoughness: .08, transparent: true, opacity: .92 }),
+  frame: clay(0xffc95e, { roughness: .25, clearcoat: .55 }),
   white: new THREE.MeshBasicMaterial({ color: 0xfff9ed })
 };
-const companionRoot = new THREE.Group(); companionRoot.position.set(.92, 0, .08); companionRoot.scale.setScalar(.92); scene.add(companionRoot);
+const companionRoot = new THREE.Group(); companionRoot.position.set(.92, 0, .08); companionRoot.scale.setScalar(.98); scene.add(companionRoot);
 const companionBody = at(ball(.36, C.body, 1.02, 1.16, .92), 0, .42, 0, companionRoot);
 at(ball(.27, C.belly, 1.02, 1.12, .5), 0, .4, .31, companionRoot);
 [-1, 1].forEach(s => { at(caps(.1, .16, C.body), s * .15, .2, 0, companionRoot); at(ball(.14, C.shoe, 1.05, .58, 1.35), s * .16, .05, .07, companionRoot); });
@@ -140,6 +142,11 @@ const companionEyes = [-1, 1].map(s => {
   const g = at(new THREE.Group(), s * .2, .52, .5, companionHead);
   at(ball(.12, C.eye, .9, 1.18, .62), 0, 0, 0, g);
   at(ball(.038, C.white), .035, .06, .07, g); return g;
+});
+const goggles = [-1, 1].map(s => {
+  const g = at(new THREE.Group(), s * .2, .52, .57, companionHead);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(.14, .028, 14, 32), C.frame); ring.castShadow = true; g.add(ring);
+  at(ball(.105, C.lens, 1, 1, .18), 0, 0, -.012, g); return g;
 });
 const companionMouth = at(ball(1, C.mouth), 0, .27, .61, companionHead);
 const companionScarf = at(caps(.1, .22, C.scarf), 0, .03, .05, companionRoot); companionScarf.rotation.z = Math.PI / 2;
@@ -222,7 +229,7 @@ const G = {
   shake:     { dur: 1.2, f: (e, s, a) => a('head', 0, .3 * sn(s * 11) * (1 - s / 1.2), 0) },
   surprise:  { dur: 1.5, f: (e, s, a) => { a('head', -.15 * e, 0, 0); a('torso', -.06 * e, 0, 0); a('armL', 0, 0, .45 * e); a('armR', 0, 0, -.45 * e); emo.o = .7 * e; emo.b = e; } },
 };
-const gesture = n => { if (G[n]) cur = { g: G[n], s: 0 }; };
+const gesture = n => { if (G[n]) cur = { g: G[n], s: 0, name: n }; };
 window.pixel = { gesture, list: Object.keys(G) };
 const RX = [[/\b(hi|hello|hey|good (morning|evening)|bye|goodbye|see you)\b/i, 'wave'], [/\b(thanks|thank you)\b/i, 'bow'], [/\b(haha|lol|funny|joke)\b/i, 'celebrate'],
   [/\b(wow|whoa|surpris|amazing)/i, 'surprise'], [/\b(yes|yeah|sure|exactly)\b/i, 'nod'], [/\b(nope|nah)\b/i, 'shake'], [/\b(maybe|not sure|don't know|no idea)/i, 'shrug']];
@@ -296,15 +303,41 @@ function frame() {
   torso.scale.y = 1 + sn(t * 1.3) * .012; sprout.rotation.z = sn(t * 1.4) * .15 + ptr.sx * .1; sprout.rotation.x = sn(t * 1.1) * .1;
   blob.scale.setScalar(1 - bounce * 2);
   const companionTalk = speaking ? Math.abs(sn(t * 5.5)) * .035 : 0;
+  const companionGesture = cur?.name || '';
+  const gestureFade = cur ? Math.max(0, Math.min(1, cur.s / .28, (cur.g.dur - cur.s) / .35)) : 0;
   companionRoot.position.y = .02 + sn(t * 1.25 + 1) * .025 + companionTalk;
-  companionRoot.rotation.z = sn(t * .72 + 1) * .025;
+  companionRoot.rotation.set(0, 0, sn(t * .72 + 1) * .025);
   companionHead.rotation.set(-ptr.sy * .08 + sn(t * .8) * .018, ptr.sx * .16, sn(t * .65) * .025);
   companionArms[0].rotation.z = .1 + sn(t * .9) * .035 + companionTalk * 1.4;
   companionArms[1].rotation.z = -.1 + sn(t * .9 + 1) * .035 - companionTalk * 1.4;
+  if (companionGesture === 'wave') {
+    companionArms[1].rotation.z -= 1.45 * gestureFade;
+    companionArms[1].rotation.y = sn(t * 10) * .18 * gestureFade;
+  } else if (companionGesture === 'celebrate') {
+    companionArms[0].rotation.z += 1.25 * gestureFade;
+    companionArms[1].rotation.z -= 1.25 * gestureFade;
+    companionRoot.position.y += Math.abs(sn(t * 7)) * .08 * gestureFade;
+  } else if (companionGesture === 'shrug') {
+    companionArms[0].rotation.z += .5 * gestureFade;
+    companionArms[1].rotation.z -= .5 * gestureFade;
+    companionRoot.position.y += .06 * gestureFade;
+  } else if (companionGesture === 'bow') {
+    companionHead.rotation.x += .28 * gestureFade;
+    companionRoot.rotation.x += .18 * gestureFade;
+  } else if (companionGesture === 'nod') {
+    companionHead.rotation.x += .24 * sn(cur.s * 11) * gestureFade;
+  } else if (companionGesture === 'shake') {
+    companionHead.rotation.y += .22 * sn(cur.s * 11) * gestureFade;
+  } else if (companionGesture === 'surprise') {
+    companionHead.rotation.x -= .16 * gestureFade;
+    companionArms[0].rotation.z += .35 * gestureFade;
+    companionArms[1].rotation.z -= .35 * gestureFade;
+  }
   antennae[0].rotation.z = sn(t * 1.3) * .16;
   antennae[1].rotation.z = sn(t * 1.3 + 1) * .16;
   companionMouth.scale.set(.1 * (1.35 + companionTalk * 7), .1 * (.3 + companionTalk * 4), .05);
   companionEyes.forEach((eye, i) => { eye.scale.y = .94 + sn(t * .55 + i * 1.7) * .035; });
+  goggles.forEach((g, i) => { g.rotation.z = sn(t * .7 + i) * .025; });
 
   // face
   vt -= dt; if (vt < 0) { vi = (vi + 1 + Math.floor(Math.random() * 4)) % 5; vt = rnd(.07, .14); }
