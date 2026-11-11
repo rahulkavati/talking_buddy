@@ -81,7 +81,7 @@ const at = (o, x, y, z, parent) => { o.position.set(x, y, z); parent?.add(o); re
 /* ---------- the buddy (original design: bearded, leaf sprout, big violet eyes) ---------- */
 const M = { skin: clay(0xf4dfc1), hair: clay(0x5a3a31), sweater: clay(0x15999b), pants: clay(0x553b35), shoe: clay(0x3c292b), leaf: clay(0x8dce69), mouth: clay(0x6a302c, { sheen: 0 }),
   eye: new THREE.MeshPhysicalMaterial({ color: 0xf05abf, roughness: .12, clearcoat: 1, clearcoatRoughness: .12, emissive: 0xb51b7f, emissiveIntensity: .28 }), white: new THREE.MeshBasicMaterial({ color: 0xfff9ed }) };
-const root = new THREE.Group(); root.position.x = -.72; scene.add(root);
+const root = new THREE.Group(); root.position.x = -.95; scene.add(root);
 const torso = at(new THREE.Group(), 0, .42, 0, root);
 const body = at(ball(.38, M.sweater, 1.14, 1.2, .98), 0, .42, 0, torso); body.userData.zone = 'body';
 [1, -1].forEach(s => {                                      // legs + shoes
@@ -123,7 +123,7 @@ const C = {
   frame: clay(0xffc95e, { roughness: .25, clearcoat: .55 }),
   white: new THREE.MeshBasicMaterial({ color: 0xfff9ed })
 };
-const companionRoot = new THREE.Group(); companionRoot.position.set(.92, 0, .08); companionRoot.scale.setScalar(.98); scene.add(companionRoot);
+const companionRoot = new THREE.Group(); companionRoot.position.set(.05, 0, .08); companionRoot.scale.setScalar(.98); scene.add(companionRoot);
 const companionBody = at(ball(.36, C.body, 1.02, 1.16, .92), 0, .42, 0, companionRoot);
 at(ball(.27, C.belly, 1.02, 1.12, .5), 0, .4, .31, companionRoot);
 [-1, 1].forEach(s => { at(caps(.1, .16, C.body), s * .15, .2, 0, companionRoot); at(ball(.14, C.shoe, 1.05, .58, 1.35), s * .16, .05, .07, companionRoot); });
@@ -154,8 +154,40 @@ const antennae = [-1, 1].map(s => {
   const g = at(new THREE.Group(), s * .17, 1.25, 0, companionHead);
   at(caps(.018, .16, C.scarf), 0, .1, 0, g); at(ball(.065, C.scarf), 0, .22, 0, g); return g;
 });
+
+/* ---------- third character candidate: Juicebox-inspired explorer ---------- */
+const J = {
+  skin: clay(0xf4edcf), teal: clay(0x16b9b5), deepTeal: clay(0x087f91), cap: clay(0x25aaa9),
+  hair: clay(0xffd45d), shoe: clay(0xfaf6e8), mouth: clay(0x70433f, { sheen: 0 }),
+  eye: new THREE.MeshPhysicalMaterial({ color: 0x52e2d4, roughness: .1, clearcoat: 1, emissive: 0x148d91, emissiveIntensity: .18 }),
+  straw: clay(0xfff4cb), box: clay(0x23c2c0), label: clay(0xffe066)
+};
+const juiceRoot = new THREE.Group(); juiceRoot.position.set(1.16, 0, .02); juiceRoot.scale.setScalar(.86); scene.add(juiceRoot);
+const juiceBody = at(ball(.34, J.teal, 1.05, 1.18, .92), 0, .4, 0, juiceRoot);
+at(ball(.34, J.deepTeal, 1.04, .98, .86), 0, .18, 0, juiceRoot);
+[-1, 1].forEach(s => { at(caps(.1, .18, J.deepTeal), s * .15, .2, 0, juiceRoot); at(ball(.135, J.shoe, 1.12, .55, 1.35), s * .16, .04, .07, juiceRoot); });
+const juiceArms = [-1, 1].map(s => {
+  const g = at(new THREE.Group(), s * .37, .6, 0, juiceRoot);
+  at(caps(.095, .17, J.teal), 0, -.16, 0, g); at(ball(.12, J.skin), 0, -.34, .02, g); return g;
+});
+const juiceHead = at(new THREE.Group(), 0, .82, 0, juiceRoot);
+at(ball(.54, J.skin, 1.08, 1, .98), 0, .48, 0, juiceHead);
+at(ball(.55, J.cap, 1.12, .66, .98), 0, .78, -.06, juiceHead);
+at(caps(.085, .28, J.cap), 0, .65, .51, juiceHead).rotation.x = Math.PI / 2;
+[-1, 1].forEach(s => {
+  const lock = at(caps(.09, .28, J.hair), s * .46, .53, .02, juiceHead); lock.rotation.z = s * .18;
+});
+const juiceEyes = [-1, 1].map(s => {
+  const g = at(new THREE.Group(), s * .2, .52, .51, juiceHead);
+  at(ball(.12, J.eye, .9, 1.18, .62), 0, 0, 0, g); at(ball(.038, J.skin), .035, .06, .07, g); return g;
+});
+const juiceMouth = at(ball(1, J.mouth), 0, .27, .62, juiceHead);
+const juiceBox = at(new THREE.Group(), -.42, .32, .28, juiceRoot);
+const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(.28, .38, .22), J.box); boxMesh.castShadow = boxMesh.receiveShadow = true; juiceBox.add(boxMesh);
+const boxLabel = new THREE.Mesh(new THREE.BoxGeometry(.2, .13, .012), J.label); boxLabel.position.set(0, .02, .116); boxLabel.castShadow = true; juiceBox.add(boxLabel);
+const boxStraw = at(caps(.018, .2, J.straw), .05, .25, 0, juiceBox); boxStraw.rotation.z = -.2;
 const blob = new THREE.Mesh(new THREE.CircleGeometry(.9, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(0,0,0,.4)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })(), transparent: true, depthWrite: false }));
-blob.position.set(-.72, .012, 0); scene.add(blob);
+blob.position.set(-.95, .012, 0); scene.add(blob);
 
 /* ---------- meadow ---------- */
 const hgt = (x, z) => (sn(x * .13 + sn(z * .07)) * .6 + Math.cos(z * .17) * .3) * THREE.MathUtils.smoothstep(Math.hypot(x, z), 3, 11);
@@ -338,6 +370,22 @@ function frame() {
   companionMouth.scale.set(.1 * (1.35 + companionTalk * 7), .1 * (.3 + companionTalk * 4), .05);
   companionEyes.forEach((eye, i) => { eye.scale.y = .94 + sn(t * .55 + i * 1.7) * .035; });
   goggles.forEach((g, i) => { g.rotation.z = sn(t * .7 + i) * .025; });
+  const juiceTalk = speaking ? Math.abs(sn(t * 5.2 + .8)) * .028 : 0;
+  juiceRoot.position.y = .015 + sn(t * 1.12 + 2) * .022 + juiceTalk;
+  juiceRoot.rotation.set(0, sn(t * .5 + 1) * .018, sn(t * .68 + 2) * .018);
+  juiceHead.rotation.set(-ptr.sy * .07 + sn(t * .75 + 1) * .016, ptr.sx * .12, sn(t * .6 + 1) * .02);
+  juiceArms[0].rotation.z = .12 + sn(t * .8) * .025;
+  juiceArms[1].rotation.z = -.12 + sn(t * .8 + 1) * .025 - juiceTalk;
+  if (companionGesture === 'wave') juiceArms[0].rotation.z += 1.25 * gestureFade;
+  if (companionGesture === 'celebrate') { juiceArms[0].rotation.z += 1.1 * gestureFade; juiceArms[1].rotation.z -= 1.1 * gestureFade; }
+  if (companionGesture === 'shrug') { juiceArms[0].rotation.z += .42 * gestureFade; juiceArms[1].rotation.z -= .42 * gestureFade; }
+  if (companionGesture === 'bow') juiceHead.rotation.x += .25 * gestureFade;
+  if (companionGesture === 'nod') juiceHead.rotation.x += .2 * sn(cur.s * 11) * gestureFade;
+  if (companionGesture === 'shake') juiceHead.rotation.y += .2 * sn(cur.s * 11) * gestureFade;
+  if (companionGesture === 'surprise') { juiceHead.rotation.x -= .14 * gestureFade; juiceArms[0].rotation.z += .3 * gestureFade; juiceArms[1].rotation.z -= .3 * gestureFade; }
+  juiceBox.rotation.z = sn(t * 1.5) * .035 + juiceTalk;
+  juiceMouth.scale.set(.1 * (1.25 + juiceTalk * 8), .1 * (.28 + juiceTalk * 4), .05);
+  juiceEyes.forEach((eye, i) => { eye.scale.y = .95 + sn(t * .6 + i * 1.5) * .03; });
 
   // face
   vt -= dt; if (vt < 0) { vi = (vi + 1 + Math.floor(Math.random() * 4)) % 5; vt = rnd(.07, .14); }
@@ -351,11 +399,11 @@ function frame() {
 
   // camera director
   const aspect = innerWidth / innerHeight, wide = aspect < .8 ? 1.35 : 1;
-  const base = cam.close ? 3.45 : { idle: 5.55, listening: 5.0, thinking: 5.85, speaking: 4.6 }[mode], ty = cam.close ? 1.98 : { idle: 1.42, listening: 1.48, thinking: 1.42, speaking: 1.68 }[mode];
+  const base = cam.close ? 4.2 : { idle: 6.7, listening: 6.05, thinking: 7.0, speaking: 5.7 }[mode], ty = cam.close ? 1.98 : { idle: 1.42, listening: 1.48, thinking: 1.42, speaking: 1.68 }[mode];
   cam.dist = damp(cam.dist, base * wide * cam.zoom, 2.2, dt); cam.ty = damp(cam.ty, ty, 2.2, dt);
   if (!cam.drag) { cam.idle += dt; if (cam.idle > 5) { cam.az = damp(cam.az, 0, 1.2, dt); cam.el = damp(cam.el, 0, 1.2, dt); } }
   const az = cam.az + ptr.sx * .06, el = cam.el + .06 + ptr.sy * .02;
-  tgt.set(0, cam.ty, 0);
+  tgt.set(.05, cam.ty, 0);
   camera.position.set(sn(az) * Math.cos(el) * cam.dist + sn(t * .2) * .04, tgt.y + sn(el) * cam.dist, Math.cos(az) * Math.cos(el) * cam.dist);
   camera.lookAt(tgt);
   bokeh.uniforms.focus.value = camera.position.distanceTo(tgt);
