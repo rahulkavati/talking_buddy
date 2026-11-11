@@ -45,8 +45,9 @@ const sun = new THREE.DirectionalLight(0xffc890, 3.4);
 sun.position.copy(sunDir).multiplyScalar(30); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 70 }); sun.shadow.bias = -.0004; sun.shadow.radius = 5;
 scene.add(sun);
-const key = new THREE.DirectionalLight(0xfff0dd, 1.5); key.position.set(-4, 4, 6); scene.add(key);
-scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x6a8f3a, 1.1));
+const key = new THREE.DirectionalLight(0xfff0dd, 1.8); key.position.set(-4, 4, 6); scene.add(key);
+const faceFill = new THREE.PointLight(0xffdcc4, 1.35, 12, 2); faceFill.position.set(2.8, 3.6, 5.5); scene.add(faceFill);
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x6a8f3a, 1.25));
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
@@ -71,15 +72,15 @@ const noiseTex = (() => {
 })();
 const clay = (color, o = {}) => new THREE.MeshPhysicalMaterial({
   color, roughness: .48, sheen: .72, sheenRoughness: .38, sheenColor: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .58),
-  clearcoat: .22, clearcoatRoughness: .42, bumpMap: noiseTex, bumpScale: .16, emissive: new THREE.Color(color).multiplyScalar(.035), ...o
+  clearcoat: .34, clearcoatRoughness: .3, bumpMap: noiseTex, bumpScale: .05, emissive: new THREE.Color(color).multiplyScalar(.025), ...o
 });
 const ball = (r, mat, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 56, 40), mat); m.scale.set(sx, sy, sz); m.castShadow = m.receiveShadow = true; return m; };
 const caps = (r, l, mat) => { const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 16, 28), mat); m.castShadow = m.receiveShadow = true; return m; };
 const at = (o, x, y, z, parent) => { o.position.set(x, y, z); parent?.add(o); return o; };
 
 /* ---------- the buddy (original design: bearded, leaf sprout, big violet eyes) ---------- */
-const M = { skin: clay(0xf0dcb8), hair: clay(0x4a3128), sweater: clay(0x3f9f9a), pants: clay(0x5a4036), shoe: clay(0x3a2620), leaf: clay(0x7cc65a), mouth: clay(0x5b2a26, { sheen: 0 }),
-  eye: new THREE.MeshPhysicalMaterial({ color: 0xe45bd8, roughness: .15, clearcoat: 1, emissive: 0x6a1668, emissiveIntensity: .5 }), white: new THREE.MeshBasicMaterial({ color: 0xffffff }) };
+const M = { skin: clay(0xf4dfc1), hair: clay(0x5a3a31), sweater: clay(0x15999b), pants: clay(0x553b35), shoe: clay(0x3c292b), leaf: clay(0x8dce69), mouth: clay(0x6a302c, { sheen: 0 }),
+  eye: new THREE.MeshPhysicalMaterial({ color: 0xf05abf, roughness: .12, clearcoat: 1, clearcoatRoughness: .12, emissive: 0xb51b7f, emissiveIntensity: .28 }), white: new THREE.MeshBasicMaterial({ color: 0xfff9ed }) };
 const root = new THREE.Group(); scene.add(root);
 const torso = at(new THREE.Group(), 0, .42, 0, root);
 const body = at(ball(.38, M.sweater, 1.14, 1.2, .98), 0, .42, 0, torso); body.userData.zone = 'body';
@@ -273,7 +274,7 @@ function frame() {
 
   // camera director
   const aspect = innerWidth / innerHeight, wide = aspect < .8 ? 1.35 : 1;
-  const base = cam.close ? 3.9 : { idle: 6.6, listening: 5.9, thinking: 6.9, speaking: 5.0 }[mode], ty = cam.close ? 1.95 : { idle: 1.45, listening: 1.5, thinking: 1.45, speaking: 1.7 }[mode];
+  const base = cam.close ? 3.45 : { idle: 5.55, listening: 5.0, thinking: 5.85, speaking: 4.6 }[mode], ty = cam.close ? 1.98 : { idle: 1.42, listening: 1.48, thinking: 1.42, speaking: 1.68 }[mode];
   cam.dist = damp(cam.dist, base * wide * cam.zoom, 2.2, dt); cam.ty = damp(cam.ty, ty, 2.2, dt);
   if (!cam.drag) { cam.idle += dt; if (cam.idle > 5) { cam.az = damp(cam.az, 0, 1.2, dt); cam.el = damp(cam.el, 0, 1.2, dt); } }
   const az = cam.az + ptr.sx * .06, el = cam.el + .06 + ptr.sy * .02;
