@@ -33,7 +33,7 @@ flowchart LR
 
 ## Pipeline contract
 
-The orchestration layer owns turn state and cancellation. Providers implement narrow interfaces for STT, LLM, TTS, VAD/turn detection, and transport. Every provider must support health checking, cancellation, and timing events. Audio is never logged by default.
+The orchestration layer owns turn state and cancellation. The Pipecat path uses its segmented STT service contract around the project-owned MLX Whisper adapter; Pipecat owns VAD boundaries, buffering, cancellation, and transcription-frame delivery. The compatibility WebSocket path still provides rolling partial Whisper captions. Providers implement narrow interfaces for STT, LLM, TTS, VAD/turn detection, and transport. Every provider must support health checking, cancellation, and timing events. Audio is never logged by default.
 
 The assistant keeps listening while speaking. VAD detects speech, Smart Turn decides whether a turn is complete, and a real interruption cancels queued LLM/TTS work. The assistant transcript is committed only for audio that was actually delivered to the user.
 

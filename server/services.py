@@ -7,16 +7,24 @@ and orchestration code.
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.frames.frames import ErrorFrame, Frame, TranscriptionFrame
 from pipecat.services.kokoro.tts import KokoroTTSService
 from pipecat.services.ollama.llm import OLLamaLLMService
+from pipecat.services.stt_service import SegmentedSTTService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
+from pipecat.transcriptions.language import Language
+from pipecat.utils.time import time_now_iso8601
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -28,7 +36,7 @@ class VoiceServices:
 
     vad: SileroVADAnalyzer
     turn: LocalSmartTurnAnalyzerV3
-    stt: Any
+    stt: "LocalMLXWhisperSTTService"
     llm: OLLamaLLMService
     tts: KokoroTTSService
 
@@ -57,6 +65,49 @@ def build_ollama(cfg: dict[str, Any]) -> OLLamaLLMService:
     )
 
 
+class LocalMLXWhisperSTTService(SegmentedSTTService):
+    """Pipecat segmented STT adapter for the project's local MLX Whisper model.
+
+    Pipecat owns VAD segmentation, buffering, cancellation, and transcription
+    frame delivery. The adapter only supplies the local Apple Silicon inference
+    implementation, avoiding the optional Faster Whisper dependency.
+    """
+
+    def __init__(self, cfg: dict[str, Any]):
+        super().__init__(
+            sample_rate=16000,
+            trailing_silence_secs=0.5,
+            audio_passthrough=True,
+        )
+        self._cfg = cfg
+
+    @property
+    def wants_wav_segments(self) -> bool:
+        return False
+
+    async def run_stt(self, audio: bytes) -> AsyncGenerator[Frame, None]:
+        try:
+            import mlx_whisper
+
+            stt = self._cfg["stt"]
+            samples = np.frombuffer(audio, dtype=np.int16).astype(np.float32) / 32768.0
+            result = await asyncio.to_thread(
+                mlx_whisper.transcribe,
+                samples,
+                path_or_hf_repo=stt["whisper_repo"],
+                language=stt.get("language", "en"),
+            )
+            text = result.get("text", "").strip()
+            if text:
+                yield TranscriptionFrame(text, "local", time_now_iso8601(), Language.EN)
+        except Exception as exc:
+            yield ErrorFrame(error=f"Local MLX Whisper failed: {exc}")
+
+
+def build_stt(cfg: dict[str, Any]) -> LocalMLXWhisperSTTService:
+    return LocalMLXWhisperSTTService(cfg)
+
+
 def build_kokoro(cfg: dict[str, Any]) -> KokoroTTSService:
     """Create Kokoro from the repository-managed model files.
 
@@ -79,7 +130,7 @@ def build_services(cfg: dict[str, Any], *, sample_rate: int = 16000) -> VoiceSer
     return VoiceServices(
         vad=build_vad(sample_rate=sample_rate),
         turn=build_smart_turn(),
-        stt=None,
+        stt=build_stt(cfg),
         llm=build_ollama(cfg),
         tts=build_kokoro(cfg),
     )

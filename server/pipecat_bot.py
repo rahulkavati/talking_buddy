@@ -7,26 +7,16 @@ replaced without changing the desktop UI or the fallback voice path.
 
 from __future__ import annotations
 
-import asyncio
 import importlib.util
 import sys
 from pathlib import Path
 from typing import Any
-
-import numpy as np
 
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.worker import PipelineParams, PipelineWorker
 from pipecat.processors.aggregators.llm_context import LLMContext
 from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
 from pipecat.processors.audio.vad_processor import VADProcessor
-from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.frames.frames import (
-    InputAudioRawFrame,
-    TranscriptionFrame,
-    VADUserStartedSpeakingFrame,
-    VADUserStoppedSpeakingFrame,
-)
 from pipecat.workers.runner import WorkerRunner
 from pipecat.turns.user_start.vad_user_turn_start_strategy import VADUserTurnStartStrategy
 from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import TurnAnalyzerUserTurnStopStrategy
@@ -56,45 +46,6 @@ def _load_config() -> dict[str, Any]:
     import yaml
 
     return yaml.safe_load((ROOT / "config.yaml").read_text())
-
-
-class LocalMLXWhisperProcessor(FrameProcessor):
-    """Small Pipecat adapter around the project's already-tested MLX Whisper path."""
-
-    def __init__(self, cfg: dict[str, Any]):
-        super().__init__()
-        self._cfg = cfg
-        self._speaking = False
-        self._audio: list[np.ndarray] = []
-
-    async def process_frame(self, frame, direction: FrameDirection):
-        await super().process_frame(frame, direction)
-        if isinstance(frame, VADUserStartedSpeakingFrame):
-            self._speaking = True
-            self._audio.clear()
-        elif isinstance(frame, InputAudioRawFrame) and self._speaking:
-            samples = np.frombuffer(frame.audio, dtype=np.int16).astype(np.float32) / 32768.0
-            self._audio.append(samples)
-        elif isinstance(frame, VADUserStoppedSpeakingFrame) and self._speaking:
-            self._speaking = False
-            audio = np.concatenate(self._audio) if self._audio else np.zeros(0, dtype=np.float32)
-            self._audio.clear()
-            if len(audio) >= 1600:
-                text = await asyncio.to_thread(self._transcribe, audio)
-                if text:
-                    await self.push_frame(TranscriptionFrame(text, "local", ""), direction)
-        await self.push_frame(frame, direction)
-
-    def _transcribe(self, audio: np.ndarray) -> str:
-        import mlx_whisper
-
-        stt = self._cfg["stt"]
-        result = mlx_whisper.transcribe(
-            audio,
-            path_or_hf_repo=stt["whisper_repo"],
-            language=stt.get("language", "en"),
-        )
-        return result.get("text", "").strip()
 
 
 def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
@@ -130,7 +81,7 @@ def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
         [
             transport.input(),
             VADProcessor(vad_analyzer=providers.vad),
-            LocalMLXWhisperProcessor(cfg),
+            providers.stt,
             user_context,
             providers.llm,
             assistant_context,

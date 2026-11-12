@@ -83,7 +83,7 @@ The desktop version is being developed on branch `codex/desktop-v1`. The applica
 | Audio transport | WebRTC | Duplex microphone/speaker tracks, echo cancellation, jitter handling, reconnects |
 | Orchestrator | Pipecat | Streaming frames, turn state, cancellation, interruption, provider composition |
 | Voice activity | Silero VAD + Smart Turn | Fast speech detection and semantic end-of-turn decisions |
-| Speech to text | Whisper MLX initially; Moonshine as an alternative | Streaming user transcription |
+| Speech to text | Pipecat-segmented local Whisper MLX; Moonshine as an alternative | VAD-segmented transcription frames; rolling partials remain in the WebSocket fallback |
 | Talker LLM | Gemma or Qwen through Ollama | Fast conversational responses |
 | Thinker LLM | Larger Gemma/Qwen through Ollama | Optional hard reasoning via a tool call |
 | Text to speech | Kokoro ONNX | Streaming local speech output |
