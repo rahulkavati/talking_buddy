@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, session } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
@@ -8,6 +8,17 @@ let pythonProcess;
 let ownsServer = false;
 const port = 8000;
 const root = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
+
+function configureMediaPermissions() {
+  const allowed = new Set(['media', 'audioCapture']);
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    const origin = webContents.getURL();
+    callback(allowed.has(permission) && /^http:\/\/127\.0\.0\.1:8000\//.test(origin));
+  });
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) =>
+    allowed.has(permission) && /^http:\/\/127\.0\.0\.1:8000\//.test(requestingOrigin || webContents?.getURL() || '')
+  );
+}
 
 function pythonCandidates() {
   const venv = process.platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : path.join(root, '.venv', 'bin', 'python');
@@ -40,7 +51,7 @@ async function createWindow() {
   await windowRef.loadURL(`http://127.0.0.1:${port}/desktop`);
   windowRef.on('closed', () => { windowRef = null; });
 }
-app.whenReady().then(createWindow);
+app.whenReady().then(() => { configureMediaPermissions(); return createWindow(); });
 app.on('activate', () => { if (!windowRef) createWindow(); });
 app.on('before-quit', () => { if (ownsServer && pythonProcess) pythonProcess.kill(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
