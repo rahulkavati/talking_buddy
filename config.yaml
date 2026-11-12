@@ -37,5 +37,11 @@ tts:
   kokoro_voice: "af_bella"  # warm, bright, friendly character voice
   speed: 1.02
 
+voice:
+  # Pipecat/WebRTC is the primary path; the existing WebSocket pipeline remains
+  # the automatic local fallback when browser or provider startup fails.
+  transport: "pipecat"
+  fallback_transport: "websocket"
+
 server:
   port: 8000

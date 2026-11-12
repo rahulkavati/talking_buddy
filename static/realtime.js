@@ -31,6 +31,12 @@
   let pendingSamples = 0;
   const speechThreshold = 0.012;
 
+  function usesPipecat() {
+    const requested = new URLSearchParams(location.search).get('voice');
+    if (requested) return requested === 'pipecat';
+    return window.PIXEL_VOICE_TRANSPORT === 'pipecat';
+  }
+
   function flushPcm() {
     if (!pendingSamples || !socket || socket.readyState !== WebSocket.OPEN) return;
     const packet = new Float32Array(pendingSamples);
@@ -269,7 +275,7 @@
 
   async function startRealtime() {
     await unlockAudio();
-    if (new URLSearchParams(location.search).get('voice') === 'pipecat' && window.pixelPipecatVoice) {
+    if (usesPipecat() && window.pixelPipecatVoice) {
       try {
         await window.pixelPipecatVoice.start({ onState: setStatus });
         listening = true;
@@ -295,7 +301,7 @@
   function stopRealtime() {
     listening = false;
     browserSTT = false;
-    if (new URLSearchParams(location.search).get('voice') === 'pipecat' && window.pixelPipecatVoice) {
+    if (usesPipecat() && window.pixelPipecatVoice) {
       window.pixelPipecatVoice.stop();
       setStatus('STANDBY // READY');
       talk.title = 'Start conversation';

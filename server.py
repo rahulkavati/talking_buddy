@@ -6,6 +6,7 @@ import base64
 import asyncio
 import io
 import importlib.util
+import json
 import os
 import re
 import subprocess
@@ -262,6 +263,10 @@ def warm_up():
 @app.get("/")
 def index(request: Request):
     html = (ROOT / "static" / "index.html").read_text()
+    html = html.replace(
+        "</head>",
+        f"<script>window.PIXEL_VOICE_TRANSPORT={json.dumps(load_cfg().get('voice', {}).get('transport', 'websocket'))};</script></head>",
+    )
     # If you ran fetch_vendor.py, load three.js locally so the app works fully offline.
     if (ROOT / "static" / "vendor" / "three" / "build" / "three.module.js").exists():
         html = (html
@@ -312,7 +317,9 @@ def desktop_page():
 def api_config():
     cfg = load_cfg()
     return {"name": cfg["character"]["name"], "model": cfg["brain"]["model"],
-            "tts": cfg["tts"]["engine"], "web": cfg["web"]["enabled"]}
+            "tts": cfg["tts"]["engine"], "web": cfg["web"]["enabled"],
+            "voice_transport": cfg.get("voice", {}).get("transport", "websocket"),
+            "voice_fallback": cfg.get("voice", {}).get("fallback_transport", "websocket")}
 
 
 @app.get("/api/voice/preflight")
