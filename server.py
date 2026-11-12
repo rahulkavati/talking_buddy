@@ -30,6 +30,7 @@ app = FastAPI()
 HISTORY = []          # [{"role": "...", "content": "..."}]
 _kokoro = None
 _kokoro_lock = threading.Lock()
+_pipecat_sessions = set()
 
 
 def load_cfg():
@@ -325,6 +326,62 @@ def api_voice_preflight():
         return module.preflight_report()
     except Exception as exc:
         return JSONResponse({"ready": False, "checks": [], "error": str(exc)}, status_code=503)
+
+
+@app.post("/api/voice/webrtc/offer")
+async def api_voice_webrtc_offer(request: Request):
+    """Start the parallel Pipecat SmallWebRTC voice path."""
+    try:
+        from pipecat.transports.smallwebrtc.request_handler import (
+            SmallWebRTCRequest,
+            SmallWebRTCRequestHandler,
+        )
+
+        payload = await request.json()
+        handler = getattr(app.state, "pipecat_webrtc_handler", None)
+        if handler is None:
+            handler = SmallWebRTCRequestHandler()
+            app.state.pipecat_webrtc_handler = handler
+
+        async def on_connection(connection):
+            module_spec = importlib.util.spec_from_file_location(
+                "talking_buddy_pipecat_bot", ROOT / "server" / "pipecat_bot.py"
+            )
+            module = importlib.util.module_from_spec(module_spec)
+            sys.modules[module_spec.name] = module
+            module_spec.loader.exec_module(module)
+            task = asyncio.create_task(module.run_session(connection))
+            _pipecat_sessions.add(task)
+            task.add_done_callback(_pipecat_sessions.discard)
+
+        answer = await handler.handle_web_request(
+            SmallWebRTCRequest.from_dict(payload), on_connection
+        )
+        return answer or JSONResponse({"error": "No WebRTC answer"}, status_code=502)
+    except Exception as exc:
+        return JSONResponse({"error": f"Pipecat WebRTC setup failed: {exc}"}, status_code=503)
+
+
+@app.patch("/api/voice/webrtc/ice")
+async def api_voice_webrtc_ice(request: Request):
+    """Forward trickle ICE candidates for the parallel Pipecat path."""
+    try:
+        from pipecat.transports.smallwebrtc.request_handler import (
+            IceCandidate,
+            SmallWebRTCPatchRequest,
+        )
+
+        handler = getattr(app.state, "pipecat_webrtc_handler", None)
+        if handler is None:
+            return JSONResponse({"error": "No active WebRTC session"}, status_code=404)
+        payload = await request.json()
+        candidates = [IceCandidate(**candidate) for candidate in payload.get("candidates", [])]
+        await handler.handle_patch_request(
+            SmallWebRTCPatchRequest(pc_id=payload["pc_id"], candidates=candidates)
+        )
+        return {"ok": True}
+    except Exception as exc:
+        return JSONResponse({"error": f"ICE update failed: {exc}"}, status_code=503)
 
 
 @app.post("/api/stt")
