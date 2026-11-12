@@ -1,0 +1,22 @@
+(function () {
+  if (document.querySelector('.desktop-drawer')) return;
+  const brand = document.querySelector('.brand');
+  if (!brand) return;
+  const legacySettings = document.getElementById('settings');
+  if (legacySettings) legacySettings.style.display = 'none';
+  const legacyLogo = brand.querySelector('.logo');
+  if (legacyLogo) legacyLogo.style.display = 'none';
+  const style = document.createElement('link');
+  style.rel = 'stylesheet'; style.href = '/static/desktop-drawer.css'; document.head.appendChild(style);
+  const toggle = document.createElement('button');
+  toggle.className = 'drawer-toggle glass'; toggle.title = 'Open Pixel navigation'; toggle.setAttribute('aria-label', 'Open Pixel navigation'); toggle.textContent = '⚙';
+  brand.insertBefore(toggle, brand.firstChild);
+  const backdrop = document.createElement('div'); backdrop.className = 'drawer-backdrop';
+  const drawer = document.createElement('aside'); drawer.className = 'desktop-drawer'; drawer.setAttribute('aria-label', 'Pixel navigation');
+  drawer.innerHTML = `<div class="drawer-brand"><span class="drawer-brand-mark">✿</span><span>PIXEL</span><button class="drawer-close" aria-label="Close navigation">×</button></div><nav class="drawer-nav"><a href="/" data-path="/"><i></i>Talk</a><a href="/models" data-path="/models"><i></i>Models &amp; Tools</a><a href="/engine" data-path="/engine"><i></i>Conversation Engine</a><a href="/latency" data-path="/latency"><i></i>Latency Lab</a><a href="#" data-path="#"><i></i>Voice &amp; Look</a><a href="#" data-path="#"><i></i>Settings</a></nav><div class="drawer-foot">Mac · local-first<br><span>Nothing leaves this computer by default</span></div>`;
+  document.body.append(backdrop, drawer);
+  const setOpen = open => { drawer.classList.toggle('open', open); backdrop.classList.toggle('open', open); toggle.setAttribute('aria-expanded', String(open)); };
+  toggle.addEventListener('click', () => setOpen(true)); backdrop.addEventListener('click', () => setOpen(false)); drawer.querySelector('.drawer-close').addEventListener('click', () => setOpen(false));
+  const current = location.pathname || '/'; drawer.querySelectorAll('a[data-path]').forEach(link => { if (link.dataset.path === current) link.classList.add('active'); if (link.getAttribute('href') === '#') link.addEventListener('click', e => e.preventDefault()); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
+})();

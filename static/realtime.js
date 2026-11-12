@@ -320,3 +320,6 @@
 const desktopSettingsScript = document.createElement('script');
 desktopSettingsScript.src = '/static/desktop-settings.js';
 document.body.appendChild(desktopSettingsScript);
+const desktopDrawerScript = document.createElement('script');
+desktopDrawerScript.src = '/static/desktop-drawer.js';
+document.body.appendChild(desktopDrawerScript);

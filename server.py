@@ -266,6 +266,7 @@ def index():
                 .replace("https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "/static/vendor/three/build/three.module.js")
                 .replace("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/", "/static/vendor/three/examples/jsm/")
                 .replace("https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js", "/static/vendor/three-vrm/lib/three-vrm.module.min.js"))
+    html = html.replace("</body>", '<script src="/static/desktop-drawer.js"></script></body>')
     return HTMLResponse(html)
 
 

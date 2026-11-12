@@ -65,3 +65,9 @@
 
   function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
 })();
+
+if (!document.querySelector('script[src="/static/desktop-drawer.js"]')) {
+  const drawerScript = document.createElement('script');
+  drawerScript.src = '/static/desktop-drawer.js';
+  document.body.appendChild(drawerScript);
+}
