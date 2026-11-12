@@ -5,6 +5,7 @@ Everything is local. The web is touched only when the user says a trigger phrase
 import base64
 import asyncio
 import io
+import importlib.util
 import os
 import re
 import subprocess
@@ -311,6 +312,19 @@ def api_config():
     cfg = load_cfg()
     return {"name": cfg["character"]["name"], "model": cfg["brain"]["model"],
             "tts": cfg["tts"]["engine"], "web": cfg["web"]["enabled"]}
+
+
+@app.get("/api/voice/preflight")
+def api_voice_preflight():
+    """Report whether the production voice dependencies are ready to start."""
+    try:
+        module_spec = importlib.util.spec_from_file_location("talking_buddy_preflight", ROOT / "server" / "preflight.py")
+        module = importlib.util.module_from_spec(module_spec)
+        sys.modules[module_spec.name] = module
+        module_spec.loader.exec_module(module)
+        return module.preflight_report()
+    except Exception as exc:
+        return JSONResponse({"ready": False, "checks": [], "error": str(exc)}, status_code=503)
 
 
 @app.post("/api/stt")

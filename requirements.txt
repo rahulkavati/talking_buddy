@@ -8,3 +8,5 @@ mlx-whisper
 ddgs
 kokoro-onnx
 soundfile
+# Production voice migration: keep the orchestrator and its local voice extras reproducible.
+pipecat-ai[webrtc,local-smart-turn,silero,mlx-whisper,runner]==1.15.0
