@@ -46,5 +46,8 @@ async function installMissing() {
 
 function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 $('installMissing').addEventListener('click', installMissing);
-$('reviewList').addEventListener('click', () => { window.location.href = '/models'; });
+$('reviewList').addEventListener('click', () => {
+  if (window.parent !== window) window.parent.postMessage({type:'pixel:navigate',page:'models'}, '*');
+  else window.location.href = '/models';
+});
 refreshStatus();
