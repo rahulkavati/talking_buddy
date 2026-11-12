@@ -1,9 +1,12 @@
 """Regression checks for the Pipecat/WebRTC migration boundary."""
 
 from pathlib import Path
+import importlib.util
+import sys
 import unittest
 
 from fastapi.testclient import TestClient
+import yaml
 
 import server
 
@@ -12,6 +15,19 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class VoiceTransportTests(unittest.TestCase):
+    def test_pinned_provider_adapters_construct(self):
+        path = ROOT / "server" / "services.py"
+        spec = importlib.util.spec_from_file_location("test_voice_services", path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
+        services = module.build_services(cfg)
+        self.assertEqual(type(services.vad).__name__, "SileroVADAnalyzer")
+        self.assertEqual(type(services.turn).__name__, "LocalSmartTurnAnalyzerV3")
+        self.assertEqual(type(services.llm).__name__, "OLLamaLLMService")
+        self.assertEqual(type(services.tts).__name__, "KokoroTTSService")
+
     def test_configured_primary_and_fallback(self):
         with TestClient(server.app) as client:
             response = client.get("/api/voice/status")
