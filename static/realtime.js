@@ -123,10 +123,6 @@
         if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'cancel' }));
         setStatus('HEARING YOU // INTERRUPTED');
       }
-      // Browser speech recognition is the fast default. The local PCM stream
-      // remains available with ?local and is used automatically when the API
-      // is unavailable.
-      if (browserSTT) return;
       if (!listening || !pcm || !socket || socket.readyState !== WebSocket.OPEN) return;
       if (rms > speechThreshold) {
         if (!speechStarted) {
@@ -258,7 +254,7 @@
         transcript.textContent = interim.trim();
         setStatus('HEARING YOU // LIVE CAPTION');
       }
-      if (finalText.trim() && listening) sendText(finalText);
+      if (finalText.trim() && listening && browserSTT) sendText(finalText);
     };
     recognition.onerror = event => {
       if (listening && ['network', 'service-not-allowed'].includes(event.error)) {
@@ -275,11 +271,9 @@
     await unlockAudio();
     await connect();
     listening = true;
-    browserSTT = Boolean(SR && !new URLSearchParams(location.search).has('local'));
-    if (browserSTT) {
-      setupRecognition();
-      try { recognition.start(); } catch (_) {}
-    }
+    // Always use the local PCM -> Whisper path. Browser SpeechRecognition can
+    // use a remote platform service and otherwise races the local transcript.
+    browserSTT = false;
     await startMicMeter();
     setStatus('LISTENING // REALTIME LINK OPEN');
     talk.title = 'Stop conversation';
