@@ -5,6 +5,7 @@
   let stream = null;
   let audio = null;
   let pcId = null;
+  let rtvi = null;
 
   function withTimeout(promise, ms, message) {
     let timer;
@@ -38,6 +39,24 @@
     stream.getTracks().forEach(track => peer.addTrack(track, stream));
     // addTrack creates the single send/receive audio transceiver expected by
     // SmallWebRTC; adding a second audio transceiver breaks media delivery.
+    rtvi = peer.createDataChannel('rtvi');
+    rtvi.onmessage = event => {
+      try {
+        const payload = JSON.parse(event.data);
+        const message = payload?.message || payload?.data || payload;
+        const type = String(message?.type || '').toLowerCase();
+        const text = message?.text || message?.transcript || message?.content;
+        if (typeof text === 'string' && text.trim() &&
+            (type.includes('transcript') || type.includes('user') || type.includes('text'))) {
+          const transcript = document.getElementById('transcript');
+          if (transcript) transcript.textContent = text.trim();
+          if (type.includes('user')) window.pixelUser?.(text.trim());
+        }
+        if (type.includes('error')) onState?.('PIPECAT ERROR // ' + (message?.error || text || 'unknown'));
+      } catch (_) {
+        // Data-channel messages are optional UI telemetry; audio must continue.
+      }
+    };
     peer.ontrack = event => {
       if (!audio) {
         audio = document.createElement('audio');
@@ -76,6 +95,8 @@
     stream = null;
     audio?.remove();
     audio = null;
+    rtvi?.close();
+    rtvi = null;
     pcId = null;
   }
 
