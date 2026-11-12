@@ -43,8 +43,9 @@
     rtvi.onmessage = event => {
       try {
         const payload = JSON.parse(event.data);
-        const message = payload?.message || payload?.data || payload;
-        const type = String(message?.type || '').toLowerCase();
+        const envelope = payload?.message || payload;
+        const message = envelope?.data || envelope?.message || envelope;
+        const type = String(envelope?.type || message?.type || '').toLowerCase();
         const text = message?.text || message?.transcript || message?.content;
         if (typeof text === 'string' && text.trim() &&
             (type.includes('transcript') || type.includes('user') || type.includes('text'))) {
@@ -52,6 +53,9 @@
           if (transcript) transcript.textContent = text.trim();
           if (type.includes('user')) window.pixelUser?.(text.trim());
         }
+        if (type === 'bot-started-speaking') onState?.('SPEAKING // PIPECAT AUDIO');
+        if (type === 'bot-stopped-speaking') onState?.('LISTENING // PIPECAT WEBRTC');
+        if (type === 'bot-interrupted') onState?.('LISTENING // PIPECAT INTERRUPTED');
         if (type.includes('error')) onState?.('PIPECAT ERROR // ' + (message?.error || text || 'unknown'));
       } catch (_) {
         // Data-channel messages are optional UI telemetry; audio must continue.
