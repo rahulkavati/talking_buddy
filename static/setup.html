@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Pixel · Setup</title>
+  <link rel="stylesheet" href="/static/setup.css">
+</head>
+<body>
+  <header class="windowbar"><div class="traffic"><i></i><i></i><i></i></div><div class="windowtitle">PIXEL · SETUP</div></header>
+  <main class="welcome-shell">
+    <section class="welcome-copy">
+      <div class="pixel-orb"><span>●</span></div>
+      <p class="eyebrow">WELCOME TO PIXEL</p>
+      <h1>Let’s get your<br>assistant ready.</h1>
+      <p class="lede">Everything runs on your Mac. I’ll check what’s already installed, and set up the rest for you.</p>
+      <div class="welcome-actions"><button class="primary" id="installMissing">Install missing items <span id="missingCount">(—)</span></button><button class="secondary" id="reviewList">Review list</button></div>
+      <p class="privacy"><b></b> Nothing leaves this computer <span>·</span> about <strong id="downloadSize">—</strong> to download</p>
+    </section>
+    <section class="readiness-card">
+      <div class="machine"><div class="machine-icon">M</div><div><p class="eyebrow">YOUR MAC</p><h2>Mac desktop · Apple Silicon</h2><p id="machineMeta">Checking memory and local services…</p></div></div>
+      <div class="rule"></div>
+      <div class="readiness-heading"><p class="eyebrow">READINESS</p><strong id="readySummary">Checking…</strong></div>
+      <div class="progress"><span id="readyProgress"></span></div>
+      <div id="readinessList" class="readiness-list"><div class="loading">CHECKING LOCAL SERVICES…</div></div>
+    </section>
+  </main>
+  <script src="/static/setup.js"></script>
+</body>
+</html>
