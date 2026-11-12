@@ -1,6 +1,6 @@
 # Talking Buddy desktop architecture
 
-This is the target architecture for the desktop voice companion. The current `server.py` and browser WebSocket route remain the compatibility path while the Pipecat pipeline is introduced and validated in stages.
+This is the production architecture for the desktop voice companion. Pipecat/WebRTC is now the configured primary path on `codex/desktop-v1`; the current `server.py` WebSocket route remains the validated compatibility fallback during migration.
 
 ## Runtime topology
 
@@ -43,9 +43,9 @@ During development Electron launches the local service. The production target is
 
 ## Delivery phases
 
-1. Freeze provider contracts and add health/preflight reporting.
-2. Validate the supplied Pipecat starter against the pinned Pipecat version.
-3. Run Pipecat with its built-in WebRTC client before connecting the avatar.
+1. Freeze provider contracts and add health/preflight reporting. **Complete.**
+2. Validate the supplied Pipecat starter against the pinned Pipecat version. **Complete against Pipecat 1.15.0.**
+3. Run Pipecat with its built-in WebRTC client before connecting the avatar. **Complete: signaling and worker startup validated.**
 4. Connect the avatar bridge, audio analyser, transcript events, and interruption hooks.
 5. Add latency probes and golden conversation replay gates.
 6. Add SQLite summaries/memory only after the core loop is stable.

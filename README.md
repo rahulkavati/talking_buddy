@@ -75,7 +75,7 @@ Name and personality live in config.yaml under `character`.
 
 The desktop version is being developed on branch `codex/desktop-v1`. The application is local-first and split into a desktop shell, a browser-based avatar UI, and a Python voice service.
 
-### Production target
+### Production target (currently active on `codex/desktop-v1`)
 
 | Layer | Technology | Responsibility |
 |---|---|---|
@@ -100,6 +100,8 @@ microphone -> WebRTC -> Silero VAD -> Smart Turn -> streaming STT
 ```
 
 The microphone remains open while Pixel speaks. A genuine barge-in cancels pending LLM/TTS work, flushes queued audio, and preserves only the assistant text that was actually heard. The client handles playback and avatar lip-sync; the server owns orchestration, model calls, cancellation, and metrics.
+
+The current desktop build uses Pipecat/WebRTC as the configured primary transport. The original PCM WebSocket pipeline remains available as an automatic fallback while the browser microphone/audio round-trip is being exercised.
 
 ### Provider and security rules
 

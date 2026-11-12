@@ -36,7 +36,8 @@
     }}), 10000, 'Microphone permission timed out');
     peer = new RTCPeerConnection();
     stream.getTracks().forEach(track => peer.addTrack(track, stream));
-    peer.addTransceiver('audio', { direction: 'recvonly' });
+    // addTrack creates the single send/receive audio transceiver expected by
+    // SmallWebRTC; adding a second audio transceiver breaks media delivery.
     peer.ontrack = event => {
       if (!audio) {
         audio = document.createElement('audio');
