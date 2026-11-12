@@ -2,4 +2,5 @@
 .embedded .sidebar{display:none!important}.embedded .app-shell{padding:0!important;gap:0!important}.embedded .content{min-height:100vh}.embedded .welcome-shell{padding-top:58px!important}
 .embedded #rightPanel #settings{display:none!important}
 .embedded .brand{display:none!important}
-.embedded .drawer-toggle{position:fixed;left:16px;top:16px;z-index:35;margin:0!important}
+.embedded .drawer-toggle{position:fixed;left:16px;top:62px;z-index:35;margin:0!important}
+.embedded .desktop-drawer{top:62px}
