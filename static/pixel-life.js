@@ -59,7 +59,7 @@ if (statusEl) new MutationObserver(() => { statusMode = readStatus(); }).observe
 window.pixel = { gesture() {}, list: [] }; window.pixelUser = () => {}; window.pixelToken = () => {};
 
 /* ---------- camera director + touch ---------- */
-const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1, dist: 6.4, ty: 1.5, drag: false, moved: 0, idle: 0, close: false };
+const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1, dist: 7.5, ty: 1.5, drag: false, moved: 0, idle: 0, close: false };
 const dom = renderer.domElement, ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
 let sq = 0, sqv = 0, pokeT = 0;
 addEventListener('pointermove', e => {
@@ -140,7 +140,7 @@ function update(dt, forcedMode) {
 
   // camera director
   const aspect = innerWidth / innerHeight, wide = aspect < .8 ? 1.5 : aspect < 1.2 ? 1.2 : 1;
-  const base = cam.close ? 4.6 : { idle: 6.4, listening: 6.1, thinking: 6.3, speaking: 5.8 }[mode], ty = cam.close ? 1.6 : { idle: 1.5, listening: 1.52, thinking: 1.5, speaking: 1.55 }[mode];
+  const base = cam.close ? 5.2 : { idle: 7.5, listening: 7.2, thinking: 7.3, speaking: 6.9 }[mode], ty = cam.close ? 1.6 : { idle: 1.5, listening: 1.52, thinking: 1.5, speaking: 1.55 }[mode];
   cam.dist = damp(cam.dist, base * wide * cam.zoom, 2.2, dt); cam.ty = damp(cam.ty, ty, 2.2, dt);
   if (!cam.drag) { cam.idle += dt; if (cam.idle > 5) { cam.az = damp(cam.az, 0, 1.2, dt); cam.el = damp(cam.el, 0, 1.2, dt); } }
   const az = cam.az + ptr.sx * .05, el = cam.el + ptr.sy * .015 - .01;
