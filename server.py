@@ -260,6 +260,20 @@ def warm_up():
     threading.Thread(target=go, daemon=True).start()
 
 
+@app.on_event("shutdown")
+async def shutdown_voice_sessions():
+    """Stop Pipecat workers and close peer connections with the local service."""
+    tasks = list(_pipecat_sessions)
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    handler = getattr(app.state, "pipecat_webrtc_handler", None)
+    if handler is not None:
+        await handler.close()
+    _pipecat_sessions.clear()
+
+
 @app.get("/")
 def index(request: Request):
     html = (ROOT / "static" / "index.html").read_text()
