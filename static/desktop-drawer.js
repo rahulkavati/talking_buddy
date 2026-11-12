@@ -1,4 +1,5 @@
 (function () {
+  if (new URLSearchParams(location.search).has('embedded')) return;
   if (document.querySelector('.desktop-drawer')) return;
   const brand = document.querySelector('.brand');
   if (!brand) return;

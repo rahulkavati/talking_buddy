@@ -37,7 +37,7 @@ async function startServer() {
 async function createWindow() {
   try { await startServer(); } catch (error) { dialog.showErrorBox('Talking Buddy could not start', error.message); app.quit(); return; }
   windowRef = new BrowserWindow({ width: 1440, height: 950, minWidth: 900, minHeight: 650, title: 'Pixel · Setup', backgroundColor: '#eee5c9', titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default', trafficLightPosition: process.platform === 'darwin' ? { x: 18, y: 16 } : undefined, webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.js') } });
-  await windowRef.loadURL(`http://127.0.0.1:${port}/setup`);
+  await windowRef.loadURL(`http://127.0.0.1:${port}/desktop`);
   windowRef.on('closed', () => { windowRef = null; });
 }
 app.whenReady().then(createWindow);

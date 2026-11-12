@@ -258,7 +258,7 @@ def warm_up():
 
 
 @app.get("/")
-def index():
+def index(request: Request):
     html = (ROOT / "static" / "index.html").read_text()
     # If you ran fetch_vendor.py, load three.js locally so the app works fully offline.
     if (ROOT / "static" / "vendor" / "three" / "build" / "three.module.js").exists():
@@ -266,6 +266,8 @@ def index():
                 .replace("https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "/static/vendor/three/build/three.module.js")
                 .replace("https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/", "/static/vendor/three/examples/jsm/")
                 .replace("https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js", "/static/vendor/three-vrm/lib/three-vrm.module.min.js"))
+    if request.query_params.get("embedded") == "1":
+        html = html.replace("<body>", '<body class="embedded"><link rel="stylesheet" href="/static/embedded.css">')
     html = html.replace("</body>", '<script src="/static/desktop-drawer.js"></script></body>')
     return HTMLResponse(html)
 
@@ -276,8 +278,16 @@ def setup_page():
 
 
 @app.get("/models")
-def models_page():
-    return HTMLResponse((ROOT / "static" / "models.html").read_text())
+def models_page(request: Request):
+    html = (ROOT / "static" / "models.html").read_text()
+    if request.query_params.get("embedded") == "1":
+        html = html.replace('</head>', '<link rel="stylesheet" href="/static/embedded.css"></head>')
+    return HTMLResponse(html)
+
+
+@app.get("/desktop")
+def desktop_page():
+    return HTMLResponse((ROOT / "static" / "desktop.html").read_text())
 
 
 @app.get("/api/config")

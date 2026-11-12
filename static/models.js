@@ -1,3 +1,4 @@
+if (new URLSearchParams(location.search).has('embedded')) document.body.classList.add('embedded');
 const groupMap = {
   hearing: { title:'HEARING', ids:['whisper','silero','smart_turn'] },
   thinking: { title:'THINKING & SPEAKING', ids:['brain','kokoro'] },

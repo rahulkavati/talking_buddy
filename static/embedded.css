@@ -1,0 +1,3 @@
+/* Pages inside the persistent desktop shell do not render their own desktop navigation. */
+.embedded .sidebar{display:none!important}.embedded .app-shell{padding:0!important;gap:0!important}.embedded .content{min-height:100vh}.embedded .welcome-shell{padding-top:58px!important}
+.embedded #rightPanel #settings{display:none!important}.embedded .drawer-toggle,.embedded .desktop-drawer,.embedded .drawer-backdrop{display:none!important}

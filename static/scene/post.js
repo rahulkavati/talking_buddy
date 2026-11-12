@@ -71,14 +71,14 @@ export function createPost(renderer, scene, camera, w, h) {
   const grade = new ShaderPass({
     uniforms: { tDiffuse: { value: null }, t: { value: 0 } },
     vertexShader: 'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader: `uniform sampler2D tDiffuse;uniform float t;varying vec2 vUv;
+      fragmentShader: `uniform sampler2D tDiffuse;uniform float t;varying vec2 vUv;
       float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233))+t)*43758.5453);}
       void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;
         float l=dot(c,vec3(.299,.587,.114));c=mix(vec3(l),c,1.06);
         c=mix(c,c*c*(3.-2.*c),.18);                                  // soft S-curve
         c=mix(c,c*vec3(1.04,1.,.93),.5);                              // warm golden-hour grade
         float v=smoothstep(.98,.3,distance(vUv,vec2(.5,.52)));c*=mix(.9,1.,v);
-        c+=(h(vUv*900.)-.5)*.014;gl_FragColor=vec4(c,1.);}`,
+        c+=(h(vUv*900.)-.5)*.006;gl_FragColor=vec4(c,1.);}`,
   });
   composer.addPass(grade);
   return {
