@@ -274,6 +274,11 @@ def setup_page():
     return HTMLResponse((ROOT / "static" / "setup.html").read_text())
 
 
+@app.get("/models")
+def models_page():
+    return HTMLResponse((ROOT / "static" / "models.html").read_text())
+
+
 @app.get("/api/config")
 def api_config():
     cfg = load_cfg()
