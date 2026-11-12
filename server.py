@@ -288,7 +288,7 @@ def models_page(request: Request):
 @app.get("/desktop")
 def desktop_page():
     html = (ROOT / "static" / "desktop.html").read_text()
-    return HTMLResponse(html.replace('</head>', '<link rel="stylesheet" href="/static/desktop-shell-motion.css"></head>'))
+    return HTMLResponse(html.replace('</head>', '<link rel="stylesheet" href="/static/desktop-shell-motion.css"><link rel="stylesheet" href="/static/navigation-standard.css"></head>'))
 
 
 @app.get("/api/config")

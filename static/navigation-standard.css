@@ -1,0 +1,2 @@
+/* Standard navigation width used by the shell, standalone pages, and Talk drawer. */
+.desktop-nav{width:285px;flex-basis:285px}.talk-active .desktop-nav{margin-left:-285px}.desktop-drawer{width:min(285px,calc(100vw - 28px))}.embedded .brand{display:none!important}.embedded .drawer-toggle{pointer-events:auto}
