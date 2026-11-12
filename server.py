@@ -452,8 +452,15 @@ def _system_status():
         kokoro_installed = True
     except ImportError:
         kokoro_installed = False
+    pipecat_installed = importlib.util.find_spec("pipecat") is not None
+    webrtc_installed = importlib.util.find_spec("aiortc") is not None
     return {
         "items": [
+            {"id": "pipecat", "name": "Pipecat", "kind": "Voice orchestrator",
+             "installed": pipecat_installed, "ready": pipecat_installed and webrtc_installed,
+             "detail": (f"WebRTC ready · {len(_pipecat_sessions)} active session(s)"
+                        if pipecat_installed and webrtc_installed
+                        else "Needs voice migration dependencies")},
             {"id": "ollama", "name": "Ollama", "kind": "LLM runtime",
              "installed": bool(ollama_bin), "ready": ollama_online,
              "detail": "Running" if ollama_online else ("Installed, not running" if ollama_bin else "Not installed")},
