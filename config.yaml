@@ -27,7 +27,7 @@ web:
   max_results: 5
 
 stt:
-  whisper_repo: "mlx-community/whisper-large-v3-turbo"   # smaller/faster: mlx-community/whisper-small-mlx
+  whisper_repo: "mlx-community/whisper-small-mlx"   # fast local fallback; use large-v3-turbo for maximum accuracy
   language: "en"
 
 tts:

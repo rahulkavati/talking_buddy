@@ -1,6 +1,10 @@
 .venv/
 __pycache__/
 .DS_Store
+node_modules/
+dist/
+*.dmg
+*.exe
 
 # Local model and avatar assets are downloaded separately.
 models/

@@ -1,0 +1,9 @@
+{
+  "name": "talking-buddy",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Talking Buddy local voice companion desktop shell",
+  "main": "desktop/main.js",
+  "scripts": { "desktop": "electron .", "desktop:dev": "electron ." },
+  "devDependencies": { "electron": "^39.0.0" }
+}

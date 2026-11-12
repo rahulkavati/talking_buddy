@@ -8,6 +8,8 @@ import io
 import os
 import re
 import subprocess
+import shutil
+import sys
 import tempfile
 import threading
 from pathlib import Path
@@ -242,6 +244,14 @@ def warm_up():
                 )
             if cfg["tts"].get("engine") == "kokoro":
                 tts_kokoro("Hello.", cfg)
+            # Load/download Whisper before the user starts talking so model
+            # setup never appears as a mysterious pause after the first word.
+            import mlx_whisper
+            mlx_whisper.transcribe(
+                np.zeros(16000, dtype=np.float32),
+                path_or_hf_repo=cfg["stt"]["whisper_repo"],
+                language=cfg["stt"].get("language", "en"),
+            )
         except Exception as e:
             print("warm-up skipped:", e)
     threading.Thread(target=go, daemon=True).start()
@@ -303,18 +313,152 @@ def api_reset():
     return {"ok": True}
 
 
+def _system_status():
+    cfg = load_cfg()
+    model = cfg["brain"]["model"]
+    ollama_bin = shutil.which("ollama")
+    ollama_online = False
+    models = []
+    if ollama_bin:
+        try:
+            response = requests.get("http://127.0.0.1:11434/api/tags", timeout=1.5)
+            if response.ok:
+                ollama_online = True
+                models = [item.get("name", "") for item in response.json().get("models", [])]
+        except requests.RequestException:
+            pass
+    try:
+        import mlx_whisper  # noqa: F401
+        whisper_installed = True
+    except ImportError:
+        whisper_installed = False
+    try:
+        import kokoro_onnx  # noqa: F401
+        kokoro_installed = True
+    except ImportError:
+        kokoro_installed = False
+    return {
+        "items": [
+            {"id": "ollama", "name": "Ollama", "kind": "LLM runtime",
+             "installed": bool(ollama_bin), "ready": ollama_online,
+             "detail": "Running" if ollama_online else ("Installed, not running" if ollama_bin else "Not installed")},
+            {"id": "brain", "name": model, "kind": "Conversation model",
+             "installed": model in models, "ready": model in models,
+             "detail": "Available locally" if model in models else "Needs download"},
+            {"id": "whisper", "name": "Whisper Small", "kind": "Speech to text",
+             "installed": whisper_installed, "ready": whisper_installed,
+             "detail": "Python package ready" if whisper_installed else "Needs installation"},
+            {"id": "kokoro", "name": "Kokoro ONNX", "kind": "Text to speech",
+             "installed": kokoro_installed, "ready": kokoro_installed and (ROOT / "models/kokoro-v1.0.onnx").exists(),
+             "detail": "Ready" if kokoro_installed and (ROOT / "models/kokoro-v1.0.onnx").exists() else "Needs setup"},
+        ]
+    }
+
+
+@app.get("/api/system/status")
+def api_system_status():
+    return _system_status()
+
+
+@app.post("/api/system/setup")
+async def api_system_setup(request: Request):
+    action = (await request.json()).get("action")
+    cfg = load_cfg()
+
+    def setup():
+        if action == "brain":
+            if not shutil.which("ollama"):
+                raise RuntimeError("Ollama is not installed")
+            subprocess.run(["ollama", "pull", cfg["brain"]["model"]], check=True, timeout=1800)
+        elif action == "kokoro":
+            subprocess.run([sys.executable, "-m", "pip", "install", "kokoro-onnx", "soundfile"],
+                           check=True, timeout=1800)
+        elif action == "whisper":
+            import mlx_whisper
+            mlx_whisper.transcribe(np.zeros(16000, dtype=np.float32),
+                                   path_or_hf_repo=cfg["stt"]["whisper_repo"],
+                                   language=cfg["stt"].get("language", "en"))
+        else:
+            raise ValueError("Unknown setup action")
+
+    try:
+        await run_in_threadpool(setup)
+        return {"ok": True, **_system_status()}
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+
+
 @app.websocket("/ws/realtime")
 async def realtime_socket(websocket: WebSocket):
-    """Duplex stream with cancellable LLM generation and queued sentence audio."""
+    """Full-duplex voice session with audio frames, partial STT, and cancellable turns."""
     if not _origin_ok(websocket.headers.get("origin")):
         await websocket.close(code=1008)
         return
     await websocket.accept()
     current_turn = None
+    turn_id = 0
+    audio_buffer = bytearray()
+    audio_sample_rate = 48000
+    audio_active = False
+    partial_task = None
+
+    async def partial_transcript(snapshot, sample_rate):
+        try:
+            samples = np.frombuffer(snapshot, dtype=np.float32).copy()
+            if len(samples) < sample_rate * 0.35:
+                return
+            text = await run_in_threadpool(transcribe, samples, sample_rate, load_cfg())
+            if text:
+                await websocket.send_json({"type": "partial_transcript", "text": text})
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # Partial captions are best-effort; final transcription still runs.
+            pass
+
     try:
         while True:
-            event = await websocket.receive_json()
+            packet = await websocket.receive()
+            if packet.get("type") == "websocket.disconnect":
+                raise WebSocketDisconnect()
+            if packet.get("bytes") is not None:
+                if audio_active:
+                    audio_buffer.extend(packet["bytes"])
+                    # Re-transcribe a rolling window while the user is speaking.
+                    # Whisper remains local and the final pass below produces the
+                    # authoritative utterance text.
+                    if len(audio_buffer) >= audio_sample_rate * 4 * 1.2:
+                        if partial_task is None or partial_task.done():
+                            snapshot = bytes(audio_buffer[-audio_sample_rate * 4:])
+                            partial_task = asyncio.create_task(
+                                partial_transcript(snapshot, audio_sample_rate))
+                continue
+            event = __import__("json").loads(packet.get("text", "{}"))
             kind = event.get("type")
+            if kind == "audio_start":
+                audio_sample_rate = int(event.get("sample_rate") or 48000)
+                audio_buffer.clear()
+                audio_active = True
+                continue
+            if kind == "audio_end":
+                audio_active = False
+                if partial_task and not partial_task.done():
+                    # Partial captions are disposable. Never make the final
+                    # answer wait for a rolling Whisper pass to finish.
+                    partial_task.cancel()
+                    try:
+                        await partial_task
+                    except asyncio.CancelledError:
+                        pass
+                partial_task = None
+                snapshot = bytes(audio_buffer)
+                audio_buffer.clear()
+                if len(snapshot) >= audio_sample_rate * 4 * 0.15:
+                    samples = np.frombuffer(snapshot, dtype=np.float32).copy()
+                    text = await run_in_threadpool(transcribe, samples, audio_sample_rate, load_cfg())
+                    if text:
+                        await websocket.send_json({"type": "transcript", "text": text})
+                continue
             if kind == "cancel":
                 if current_turn and not current_turn.done():
                     current_turn.cancel()
@@ -323,26 +467,27 @@ async def realtime_socket(websocket: WebSocket):
                 continue
             if kind != "user_text":
                 continue
+            turn_id += 1
             if current_turn and not current_turn.done():
                 current_turn.cancel()
             text = (event.get("text") or "").strip()
             if text:
-                current_turn = asyncio.create_task(stream_turn(websocket, text))
+                current_turn = asyncio.create_task(stream_turn(websocket, text, turn_id))
     except WebSocketDisconnect:
         if current_turn and not current_turn.done():
             current_turn.cancel()
 
 
-async def stream_turn(websocket, text):
+async def stream_turn(websocket, text, turn_id):
     cfg = load_cfg()
     name = cfg["character"]["name"]
     system = cfg["character"]["system_prompt"].replace("{name}", name)
     turns = cfg["brain"].get("history_turns", 8) * 2
-    await websocket.send_json({"type": "user_text", "text": text})
-    await websocket.send_json({"type": "state", "value": "THINKING"})
+    await websocket.send_json({"type": "user_text", "text": text, "turn": turn_id})
+    await websocket.send_json({"type": "state", "value": "THINKING", "turn": turn_id})
     prompt, used_web = await run_in_threadpool(build_prompt, cfg, text)
     if used_web:
-        await websocket.send_json({"type": "web", "used": True})
+        await websocket.send_json({"type": "web", "used": True, "turn": turn_id})
     messages = [{"role": "system", "content": system}] + HISTORY[-turns:] + [
         {"role": "user", "content": prompt}]
     full_reply = ""
@@ -357,26 +502,28 @@ async def stream_turn(websocket, text):
                 break
             full_reply += delta
             sentence += delta
-            await websocket.send_json({"type": "token", "text": delta})
+            await websocket.send_json({"type": "token", "text": delta, "turn": turn_id})
             if sentence.rstrip().endswith((".", "!", "?", ":", ";")) and len(sentence.strip()) > 8:
                 audio_tasks.append(asyncio.create_task(synthesize_sentence(sentence.strip())))
                 sentence = ""
             # Send any sentence whose audio is already ready while tokens continue.
             while audio_tasks and audio_tasks[0].done():
-                await send_audio_result(websocket, await audio_tasks.pop(0))
+                await send_audio_result(websocket, await audio_tasks.pop(0), turn_id)
         if sentence.strip():
             audio_tasks.append(asyncio.create_task(synthesize_sentence(sentence.strip())))
         # Preserve sentence order, but synthesis itself happened in parallel.
         for task in audio_tasks:
-            await send_audio_result(websocket, await task)
+            await send_audio_result(websocket, await task, turn_id)
         full_reply = re.sub(r"<think>.*?</think>", "", full_reply, flags=re.S).strip()
         HISTORY.append({"role": "user", "content": text})
         HISTORY.append({"role": "assistant", "content": full_reply})
-        await websocket.send_json({"type": "done"})
+        await websocket.send_json({"type": "done", "turn": turn_id})
     except asyncio.CancelledError:
         for task in audio_tasks:
             task.cancel()
         raise
+    except WebSocketDisconnect:
+        return
     except requests.exceptions.ConnectionError:
         await websocket.send_json({"type": "error", "message": "I can't reach Ollama. Is it running?"})
     except Exception as e:                  # never leave the UI hanging on THINKING
@@ -393,11 +540,11 @@ async def synthesize_sentence(sentence):
     return await run_in_threadpool(speak, sentence)
 
 
-async def send_audio_result(websocket, wav):
+async def send_audio_result(websocket, wav, turn_id):
     if not wav:
         return
-    await websocket.send_json({"type": "state", "value": "SPEAKING"})
-    await websocket.send_json({"type": "audio", "audio": base64.b64encode(wav).decode()})
+    await websocket.send_json({"type": "state", "value": "SPEAKING", "turn": turn_id})
+    await websocket.send_json({"type": "audio", "audio": base64.b64encode(wav).decode(), "turn": turn_id})
 
 
 def next_or_none(iterator):

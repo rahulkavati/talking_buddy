@@ -4,6 +4,12 @@
   --panel:rgba(8,24,27,.72);
   --line:rgba(185,255,225,.24);
 }
+
+#settingsModal{display:none;position:fixed;inset:0;z-index:20;align-items:center;justify-content:center;padding:1rem}
+#settingsModal.open{display:flex}.settings-backdrop{position:absolute;inset:0;background:rgba(4,1,1,.76);backdrop-filter:blur(10px)}
+.settings-panel{position:relative;width:min(680px,100%);max-height:min(760px,calc(100vh - 2rem));overflow:auto;padding:1.35rem;border:1px solid #e74c3c99;border-radius:20px;background:linear-gradient(145deg,#24100ff5,#0a0505f5);box-shadow:0 24px 90px #000e,0 0 40px #e74c3c22;color:#f2dddd}
+.settings-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.settings-kicker{font:.62rem ui-monospace,monospace;letter-spacing:.18em;color:#f39c12}.settings-panel h2{margin:.35rem 0 0;font:800 1.25rem Orbitron,ui-monospace,sans-serif;letter-spacing:.12em}.settings-close{border:0;background:transparent;color:#d5bcbc;font-size:1.8rem;line-height:1;cursor:pointer}.settings-intro{color:#ad9a9a;font:.78rem ui-monospace,monospace;line-height:1.5;margin:1rem 0 1.15rem}.system-items{display:grid;gap:.65rem}.system-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;border:1px solid #e74c3c44;border-radius:13px;background:#120807aa}.system-name{font:700 .82rem ui-monospace,monospace;color:#ffe3d6}.system-kind{font-size:.62rem;color:#9e8585;margin-left:.35rem}.system-detail{margin-top:.3rem;color:#a89494;font:.68rem ui-monospace,monospace;overflow-wrap:anywhere}.system-action{display:flex;align-items:center;gap:.55rem;flex-shrink:0}.system-status{font:700 .6rem ui-monospace,monospace;padding:.28rem .42rem;border-radius:5px;border:1px solid}.system-status.ready{color:#8de3a0;border-color:#55b96a77}.system-status.installed{color:#f4c66e;border-color:#f39c1266}.system-status.missing{color:#ff9b8e;border-color:#e74c3c88}.setup-button{border:1px solid #f39c12aa;border-radius:7px;padding:.38rem .55rem;background:#3a1c0b;color:#ffd493;cursor:pointer;font:700 .6rem ui-monospace,monospace}.setup-button:hover{background:#6b2d13;color:#fff}.settings-loading,.settings-error,.system-message{color:#bda7a7;font:.7rem ui-monospace,monospace}.settings-error{color:#ff9b8e}.system-message{min-height:1.1rem;margin-top:1rem;color:#f3c377}
+@media(max-width:600px){.system-row{align-items:flex-start;flex-direction:column}.system-action{width:100%;justify-content:space-between}}
 body{
   font-family:Inter,ui-sans-serif,system-ui,sans-serif;
   letter-spacing:.01em;
@@ -82,3 +88,47 @@ body{background:#162018;color:#fff5df}
 .emote{border:1px solid rgba(185,255,225,.2);background:rgba(6,22,26,.68);color:rgba(233,255,248,.85);border-radius:10px;padding:.38rem .6rem;font:.68rem ui-monospace,monospace;cursor:pointer;transition:transform .15s,border-color .15s}
 .emote:hover{border-color:#b9ffe1;transform:translateY(-2px);background:rgba(42,100,91,.46)}
 .emote:active{transform:scale(.95)}
+
+/* Soft Meadow: the scene provides its own light, so no CSS vignette over the canvas */
+#canvas-container:after,.hud:after{display:none!important}
+
+/* ===== Soft Meadow HUD: cream clay pills with deep olive type, like the "SOFT MEADOW" label in the reference ===== */
+:root{
+  --cream:#f6ecd2; --cream2:#efe0bd; --ink:#4a5a21; --ink2:#6b7a35; --lime:#a9bf4a; --gold:#e8b24a;
+  --panel:rgba(246,236,210,.9); --line:rgba(120,130,60,.28); --red:#c9893a; --amber:#e8b24a;
+  font-family:"SF Pro Rounded",ui-rounded,"Nunito","Quicksand","Avenir Next Rounded",system-ui,sans-serif;
+}
+body{font-family:"SF Pro Rounded",ui-rounded,"Nunito","Quicksand","Avenir Next Rounded",system-ui,sans-serif;letter-spacing:.01em;color:var(--ink)}
+.glass{background:var(--panel)!important;border:1px solid rgba(255,255,255,.65)!important;box-shadow:0 10px 28px rgba(92,84,36,.22),inset 0 -3px 0 rgba(180,160,100,.22),inset 0 2px 0 rgba(255,255,255,.8)!important;backdrop-filter:blur(10px)}
+.logo{color:var(--ink)!important;border-radius:16px!important;font-size:1.3rem}
+.eyebrow{color:#5c6a2c!important;font:800 .62rem "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important;letter-spacing:.22em!important;text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.title{color:#4a5a21!important;font:900 1.45rem "SF Pro Rounded",ui-rounded,"Nunito",system-ui,sans-serif!important;letter-spacing:.14em!important;text-shadow:0 1px 0 rgba(255,255,255,.7)!important}
+.badge{background:var(--cream)!important;color:var(--ink)!important;border:1px solid rgba(255,255,255,.7)!important;border-radius:999px!important;padding:.22rem .65rem!important;font:900 .62rem "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important;letter-spacing:.12em;-webkit-text-stroke:0;text-shadow:none!important;box-shadow:0 3px 8px rgba(92,84,36,.2)}
+.connection{color:#4f5f24!important;font:800 .68rem "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important;text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.dot{background:#8fb33a!important;box-shadow:0 0 10px #c3dd68!important}
+.icon-btn{background:var(--cream)!important;color:var(--ink)!important;border:1px solid rgba(255,255,255,.7)!important}
+.mic-btn:before{background:linear-gradient(135deg,#ffd77a,#b9d65a)!important;opacity:.85!important;filter:blur(9px)!important}
+.mic-core{background:linear-gradient(180deg,#fff6dc,#efdcae)!important;border:2px solid #fff!important;color:var(--ink)!important;box-shadow:0 6px 16px rgba(92,84,36,.3),inset 0 -4px 0 rgba(180,150,80,.3)!important}
+.right.listening .mic-core{color:#fff!important;background:linear-gradient(180deg,#b9d65a,#86a935)!important}
+.feed{border-radius:24px!important;border-right:0!important}
+.feed-head{color:#6b7a35!important;font:900 .6rem "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important;letter-spacing:.2em!important}
+.feed-head i{color:#8fb33a!important}
+#transcript,#reply{color:#3f4d1b!important;font:700 .9rem/1.5 "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important}
+.wave i{background:#9bbd3e!important}
+.chip,.send,.emote{background:var(--cream)!important;color:var(--ink)!important;border:1px solid rgba(255,255,255,.75)!important;border-radius:999px!important;font:800 .72rem "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important;padding:.55rem .95rem;box-shadow:0 5px 12px rgba(92,84,36,.18),inset 0 -2px 0 rgba(180,160,100,.25)}
+.emote{padding:.4rem .7rem;font-size:.68rem!important}
+.send{width:36px;height:36px;padding:0;display:grid;place-items:center}
+.chip:hover,.send:hover,.icon-btn:hover,.emote:hover{background:#fff6dc!important;color:#33420f!important;border-color:#fff!important;transform:translateY(-2px)}
+.emotes.glass{background:rgba(246,236,210,.55)!important;border-radius:22px!important}
+.text-form{border-radius:999px!important;padding:.3rem .35rem .3rem 1rem!important}
+.text-form input{color:#3f4d1b!important;font:700 .85rem "SF Pro Rounded",ui-rounded,system-ui,sans-serif!important}
+.text-form input::placeholder{color:#8b9657}
+.brand>div:last-child{background:rgba(246,236,210,.78);border-radius:20px;padding:.45rem .85rem .5rem;box-shadow:0 8px 20px rgba(92,84,36,.2),inset 0 2px 0 rgba(255,255,255,.8);backdrop-filter:blur(8px)}
+.title{margin:.05rem 0!important}
+.eyebrow{font-size:.56rem!important}
+@media(max-width:700px){
+  .emotes{display:none!important}
+  .right{width:56%!important}.feed{padding:.7rem .8rem!important}#transcript,#reply{font-size:.78rem!important}
+  .brand>div:last-child{padding:.3rem .6rem}.eyebrow{display:none}.title{font-size:1.05rem!important}
+  .chip{padding:.4rem .65rem;font-size:.64rem!important}.mic-btn{width:58px;height:58px}
+}

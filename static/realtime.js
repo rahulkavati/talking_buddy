@@ -1,4 +1,4 @@
-// Streaming voice mode: browser captions -> WebSocket -> streamed Ollama/Kokoro.
+// Full-duplex voice mode: PCM frames -> rolling Whisper -> streamed Ollama/Kokoro.
 (() => {
   const talk = document.getElementById('talk');
   const form = document.getElementById('textForm');
@@ -8,12 +8,12 @@
   const rightPanel = document.getElementById('rightPanel');
   if (!talk || !transcript) return;
 
-  const fallbackTalk = talk.onclick;
   const fallbackForm = form?.onsubmit;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let socket = null;
   let recognition = null;
   let listening = false;
+  let browserSTT = false;
   let currentReply = null;
   let audioQueue = [];
   let playing = false;
@@ -24,6 +24,31 @@
   let meterNode = null;
   let meterSink = null;
   let lastBargeIn = 0;
+  let activeTurn = 0;
+  let speechStarted = false;
+  let silenceMs = 0;
+  let pendingPcm = [];
+  let pendingSamples = 0;
+  const speechThreshold = 0.012;
+
+  function flushPcm() {
+    if (!pendingSamples || !socket || socket.readyState !== WebSocket.OPEN) return;
+    const packet = new Float32Array(pendingSamples);
+    let offset = 0;
+    for (const chunk of pendingPcm) { packet.set(chunk, offset); offset += chunk.length; }
+    pendingPcm = [];
+    pendingSamples = 0;
+    socket.send(packet.buffer);
+  }
+
+  function queuePcm(pcm) {
+    const chunk = new Float32Array(pcm);
+    pendingPcm.push(chunk);
+    pendingSamples += chunk.length;
+    // One 20 ms packet is enough resolution for VAD while avoiding hundreds
+    // of tiny WebSocket messages per second from the AudioWorklet.
+    if (pendingSamples >= Math.round((audioContext?.sampleRate || 48000) * .02)) flushPcm();
+  }
 
   const setStatus = value => {
     status.textContent = value;
@@ -79,18 +104,49 @@
     micStream = await navigator.mediaDevices.getUserMedia({ audio: {
       echoCancellation: true, noiseSuppression: true, autoGainControl: true
     }});
-    await audioContext.audioWorklet.addModule('/static/mic-meter-worklet.js');
+    await audioContext.audioWorklet.addModule('/static/voice-capture-worklet.js');
     meterSource = audioContext.createMediaStreamSource(micStream);
-    meterNode = new AudioWorkletNode(audioContext, 'mic-meter');
+    meterNode = new AudioWorkletNode(audioContext, 'voice-capture');
     meterSink = audioContext.createGain();
     meterSink.gain.value = 0;
+    speechStarted = false;
+    silenceMs = 0;
+    pendingPcm = [];
+    pendingSamples = 0;
     meterNode.port.onmessage = event => {
       const rms = event.data.rms || 0;
-      if (rms > .012 && (playing || audioQueue.length) && Date.now() - lastBargeIn > 450) {
+      const pcm = event.data.pcm;
+      const frameMs = (pcm?.length || 0) / audioContext.sampleRate * 1000;
+      if (rms > speechThreshold && (playing || audioQueue.length) && Date.now() - lastBargeIn > 450) {
         lastBargeIn = Date.now();
         interruptAudio();
         if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'cancel' }));
         setStatus('HEARING YOU // INTERRUPTED');
+      }
+      // Browser speech recognition is the fast default. The local PCM stream
+      // remains available with ?local and is used automatically when the API
+      // is unavailable.
+      if (browserSTT) return;
+      if (!listening || !pcm || !socket || socket.readyState !== WebSocket.OPEN) return;
+      if (rms > speechThreshold) {
+        if (!speechStarted) {
+          speechStarted = true;
+          silenceMs = 0;
+          socket.send(JSON.stringify({ type: 'audio_start', sample_rate: audioContext.sampleRate }));
+          setStatus('HEARING YOU // STREAMING');
+        }
+        silenceMs = 0;
+        queuePcm(pcm);
+      } else if (speechStarted) {
+        queuePcm(pcm);
+        silenceMs += frameMs;
+        if (silenceMs >= 700) {
+          speechStarted = false;
+          silenceMs = 0;
+          flushPcm();
+          socket.send(JSON.stringify({ type: 'audio_end' }));
+          setStatus('TRANSCRIBING // STREAMING WHISPER');
+        }
       }
     };
     meterSource.connect(meterNode);
@@ -104,6 +160,10 @@
     try { meterSink?.disconnect(); } catch (_) {}
     micStream?.getTracks().forEach(track => track.stop());
     meterSource = meterNode = meterSink = micStream = null;
+    speechStarted = false;
+    silenceMs = 0;
+    pendingPcm = [];
+    pendingSamples = 0;
   }
 
   function ensureReplyBox() {
@@ -127,7 +187,21 @@
       socket.onclose = () => { socket = null; };
       socket.onmessage = event => {
         const message = JSON.parse(event.data);
-        if (message.type === 'user_text') {
+        // A cancelled turn can still have one network packet in flight. Ignore
+        // it so old speech never plays over the user's new utterance.
+        if (message.turn && message.type !== 'user_text' && message.turn !== activeTurn) return;
+        if (message.type === 'partial_transcript') {
+          if (listening && !speechStarted) {
+            transcript.textContent = message.text;
+            setStatus('TRANSCRIBING // LIVE WHISPER');
+          }
+        } else if (message.type === 'transcript') {
+          if (listening && message.text) {
+            transcript.textContent = message.text;
+            sendText(message.text);
+          }
+        } else if (message.type === 'user_text') {
+          activeTurn = message.turn || (activeTurn + 1);
           transcript.textContent = message.text;
           window.pixelUser?.(message.text);
           document.getElementById('reply')?.remove();
@@ -144,6 +218,9 @@
           playAudioQueue().catch(error => console.warn('Streaming audio failed:', error));
         } else if (message.type === 'done') {
           if (listening) setStatus('LISTENING // VOICE LINK OPEN');
+        } else if (message.type === 'cancelled') {
+          interruptAudio();
+          if (listening) setStatus('LISTENING // VOICE LINK OPEN');
         } else if (message.type === 'error') {
           setStatus('LINK ERROR // ' + message.message);
         }
@@ -155,6 +232,10 @@
     text = text.trim();
     if (!text) return;
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    // Stop the current audio before sending the next turn. This also makes
+    // typed messages behave like a natural voice interruption.
+    interruptAudio();
+    activeTurn += 1;
     socket.send(JSON.stringify({ type: 'user_text', text }));
   }
 
@@ -179,38 +260,39 @@
       }
       if (finalText.trim() && listening) sendText(finalText);
     };
-    // Chrome's SpeechRecognition sends audio to Google. If it fails (offline), use local Whisper.
-    recognition.onerror = e => {
-      if (listening && ['network', 'service-not-allowed'].includes(e.error)) {
-        stopRealtime();
-        setStatus('ONLINE CAPTIONS UNAVAILABLE // USING LOCAL WHISPER');
-        fallbackTalk?.();
+    recognition.onerror = event => {
+      if (listening && ['network', 'service-not-allowed'].includes(event.error)) {
+        browserSTT = false;
+        setStatus('LOCAL WHISPER // FALLBACK');
       }
     };
     recognition.onend = () => {
-      if (listening) try { recognition.start(); } catch (_) {}
+      if (listening && browserSTT) try { recognition.start(); } catch (_) {}
     };
   }
 
   async function startRealtime() {
-    if (!SR || new URLSearchParams(location.search).has('local')) {   // add ?local to the URL to force offline Whisper
-      if (fallbackTalk) return fallbackTalk();
-      setStatus('BROWSER SPEECH INPUT UNAVAILABLE');
-      return;
-    }
     await unlockAudio();
-    await startMicMeter();
     await connect();
-    setupRecognition();
     listening = true;
-    try { recognition.start(); } catch (_) {}
+    browserSTT = Boolean(SR && !new URLSearchParams(location.search).has('local'));
+    if (browserSTT) {
+      setupRecognition();
+      try { recognition.start(); } catch (_) {}
+    }
+    await startMicMeter();
     setStatus('LISTENING // REALTIME LINK OPEN');
     talk.title = 'Stop conversation';
   }
 
   function stopRealtime() {
     listening = false;
+    browserSTT = false;
     if (recognition) recognition.stop();
+    if (socket?.readyState === WebSocket.OPEN && speechStarted) {
+      flushPcm();
+      socket.send(JSON.stringify({ type: 'audio_end' }));
+    }
     stopMicMeter();
     interruptAudio();
     if (socket) socket.close();
@@ -234,3 +316,7 @@
     };
   });
 })();
+
+const desktopSettingsScript = document.createElement('script');
+desktopSettingsScript.src = '/static/desktop-settings.js';
+document.body.appendChild(desktopSettingsScript);
