@@ -349,6 +349,18 @@ def api_voice_preflight():
         return JSONResponse({"ready": False, "checks": [], "error": str(exc)}, status_code=503)
 
 
+@app.get("/api/voice/status")
+def api_voice_status():
+    """Return the configured voice path and current Pipecat session state."""
+    cfg = load_cfg()
+    return {
+        "transport": cfg.get("voice", {}).get("transport", "websocket"),
+        "fallback": cfg.get("voice", {}).get("fallback_transport", "websocket"),
+        "active_sessions": len(_pipecat_sessions),
+        "webrtc_handler_ready": getattr(app.state, "pipecat_webrtc_handler", None) is not None,
+    }
+
+
 @app.post("/api/voice/webrtc/offer")
 async def api_voice_webrtc_offer(request: Request):
     """Start the parallel Pipecat SmallWebRTC voice path."""
