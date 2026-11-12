@@ -28,6 +28,10 @@ from pipecat.frames.frames import (
     VADUserStoppedSpeakingFrame,
 )
 from pipecat.workers.runner import WorkerRunner
+from pipecat.turns.user_start.vad_user_turn_start_strategy import VADUserTurnStartStrategy
+from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import TurnAnalyzerUserTurnStopStrategy
+from pipecat.turns.user_turn_strategies import UserTurnStrategies
+from pipecat.processors.aggregators.llm_response_universal import LLMUserAggregatorParams
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -111,7 +115,14 @@ def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
         ]
     )
     aggregators = LLMContextAggregatorPair(
-        context
+        context,
+        user_params=LLMUserAggregatorParams(
+            vad_analyzer=providers.vad,
+            user_turn_strategies=UserTurnStrategies(
+                start=[VADUserTurnStartStrategy()],
+                stop=[TurnAnalyzerUserTurnStopStrategy(turn_analyzer=providers.turn)],
+            ),
+        ),
     )
     user_context = aggregators.user()
     assistant_context = aggregators.assistant()
