@@ -1,2 +1,2 @@
 /* Standard navigation width used by the shell, standalone pages, and Talk drawer. */
-.desktop-nav{width:285px;flex-basis:285px}.talk-active .desktop-nav{margin-left:-285px}.desktop-drawer{width:min(285px,calc(100vw - 28px))}.embedded .brand{display:none!important}.embedded .drawer-toggle{pointer-events:auto}
+.desktop-nav{width:285px;flex-basis:285px}.talk-active .desktop-nav{margin-left:-285px}.setup-active .desktop-shell{padding:0;gap:0}.setup-active .desktop-nav{display:none}.setup-active .desktop-content{border-radius:0;box-shadow:none}.desktop-drawer{width:min(285px,calc(100vw - 28px))}.embedded .brand{display:none!important}.embedded .drawer-toggle{pointer-events:auto}
