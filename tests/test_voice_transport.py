@@ -64,6 +64,9 @@ class VoiceTransportTests(unittest.TestCase):
             html = client.get("/").text
         self.assertIn('window.PIXEL_VOICE_TRANSPORT="pipecat"', html)
         self.assertIn('/static/pipecat-webrtc.js', html)
+        client = (ROOT / "static" / "pipecat-webrtc.js").read_text()
+        self.assertIn("type: 'client-ready'", client)
+        self.assertIn("version: '2.3.0'", client)
 
     def test_webrtc_routes_are_registered(self):
         paths = {route.path for route in server.app.routes}

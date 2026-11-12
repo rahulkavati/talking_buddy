@@ -41,6 +41,19 @@
     // addTrack creates the single send/receive audio transceiver expected by
     // SmallWebRTC; adding a second audio transceiver breaks media delivery.
     rtvi = peer.createDataChannel('rtvi');
+    rtvi.onopen = () => {
+      // Pipecat gates input audio until the RTVI client-ready handshake. Without
+      // this message the peer can be connected while the server receives no mic.
+      rtvi.send(JSON.stringify({
+        label: 'rtvi-ai',
+        type: 'client-ready',
+        id: crypto.randomUUID(),
+        data: {
+          version: '2.3.0',
+          about: { library: 'pixel-manual-webrtc', library_version: '1.0.0', platform: 'electron' },
+        },
+      }));
+    };
     rtvi.onmessage = event => {
       try {
         const payload = JSON.parse(event.data);
