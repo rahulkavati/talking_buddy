@@ -281,7 +281,22 @@ def setup_page():
 def models_page(request: Request):
     html = (ROOT / "static" / "models.html").read_text()
     if request.query_params.get("embedded") == "1":
-        html = html.replace('</head>', '<link rel="stylesheet" href="/static/embedded.css"></head>')
+        html = html.replace('<body>', '<body class="embedded">').replace('</head>', '<link rel="stylesheet" href="/static/embedded.css"></head>')
+    return HTMLResponse(html)
+
+@app.get("/engine")
+def engine_page(request: Request):
+    html = (ROOT / "static" / "engine.html").read_text()
+    if request.query_params.get("embedded") == "1":
+        html = html.replace('<body>', '<body class="embedded">').replace('</head>', '<link rel="stylesheet" href="/static/embedded.css"></head>')
+    return HTMLResponse(html)
+
+
+@app.get("/latency")
+def latency_page(request: Request):
+    html = (ROOT / "static" / "latency.html").read_text()
+    if request.query_params.get("embedded") == "1":
+        html = html.replace('<body>', '<body class="embedded">').replace('</head>', '<link rel="stylesheet" href="/static/embedded.css"></head>')
     return HTMLResponse(html)
 
 
