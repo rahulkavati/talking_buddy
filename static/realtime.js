@@ -269,6 +269,12 @@
 
   async function startRealtime() {
     await unlockAudio();
+    if (new URLSearchParams(location.search).get('voice') === 'pipecat' && window.pixelPipecatVoice) {
+      listening = true;
+      await window.pixelPipecatVoice.start({ onState: setStatus });
+      talk.title = 'Stop conversation';
+      return;
+    }
     await connect();
     listening = true;
     // Always use the local PCM -> Whisper path. Browser SpeechRecognition can
@@ -282,6 +288,12 @@
   function stopRealtime() {
     listening = false;
     browserSTT = false;
+    if (new URLSearchParams(location.search).get('voice') === 'pipecat' && window.pixelPipecatVoice) {
+      window.pixelPipecatVoice.stop();
+      setStatus('STANDBY // READY');
+      talk.title = 'Start conversation';
+      return;
+    }
     if (recognition) recognition.stop();
     if (socket?.readyState === WebSocket.OPEN && speechStarted) {
       flushPcm();
