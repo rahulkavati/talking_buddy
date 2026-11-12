@@ -149,7 +149,6 @@ function update(dt, forcedMode) {
   camera.lookAt(tgt);
   post.dof.uniforms.focus.value = camera.position.distanceTo(tgt);
   post.dof.uniforms.range.value = 11; post.dof.uniforms.maxCoc.value = 3.2 * PR;
-  post.grade.uniforms.t.value = t % 10;
 }
 
 const clock = new THREE.Clock();
