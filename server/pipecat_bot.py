@@ -117,7 +117,6 @@ def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
     aggregators = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
-            vad_analyzer=providers.vad,
             user_turn_strategies=UserTurnStrategies(
                 start=[VADUserTurnStartStrategy()],
                 stop=[TurnAnalyzerUserTurnStopStrategy(turn_analyzer=providers.turn)],
