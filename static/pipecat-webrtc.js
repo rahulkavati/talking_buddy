@@ -1,5 +1,6 @@
 // SmallWebRTC browser client for the parallel Pipecat voice path.
-// Opt in with ?voice=pipecat while the compatibility WebSocket path remains default.
+// Pipecat is the configured primary transport. The compatibility WebSocket
+// path remains available when signaling or the peer connection cannot start.
 (() => {
   let peer = null;
   let stream = null;
@@ -29,7 +30,7 @@
     });
   }
 
-  async function start({ onState } = {}) {
+  async function start({ onState, onConnectionLost } = {}) {
     if (peer) return;
     onState?.('CONNECTING // WEBRTC');
     stream = await withTimeout(navigator.mediaDevices.getUserMedia({ audio: {
@@ -75,6 +76,7 @@
     peer.onconnectionstatechange = () => {
       if (['failed', 'closed', 'disconnected'].includes(peer.connectionState)) {
         onState?.('WEBRTC LINK LOST');
+        onConnectionLost?.();
       }
     };
     const offer = await peer.createOffer();

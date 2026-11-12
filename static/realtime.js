@@ -29,6 +29,7 @@
   let silenceMs = 0;
   let pendingPcm = [];
   let pendingSamples = 0;
+  let activeTransport = null;
   const speechThreshold = 0.012;
 
   function usesPipecat() {
@@ -277,8 +278,20 @@
     await unlockAudio();
     if (usesPipecat() && window.pixelPipecatVoice) {
       try {
-        await window.pixelPipecatVoice.start({ onState: setStatus });
+        await window.pixelPipecatVoice.start({
+          onState: setStatus,
+          onConnectionLost: () => {
+            if (!listening || activeTransport !== 'pipecat') return;
+            window.pixelPipecatVoice.stop();
+            activeTransport = null;
+            setStatus('WEBRTC LINK LOST // USING FALLBACK');
+            startWebSocketFallback().catch(error =>
+              setStatus('LINK ERROR // ' + error.message)
+            );
+          },
+        });
         listening = true;
+        activeTransport = 'pipecat';
         talk.title = 'Stop conversation';
         return;
       } catch (error) {
@@ -288,12 +301,17 @@
         setStatus('WEBRTC UNAVAILABLE // USING FALLBACK');
       }
     }
+    await startWebSocketFallback();
+  }
+
+  async function startWebSocketFallback() {
     await connect();
     listening = true;
     // Always use the local PCM -> Whisper path. Browser SpeechRecognition can
     // use a remote platform service and otherwise races the local transcript.
     browserSTT = false;
     await startMicMeter();
+    activeTransport = 'websocket';
     setStatus('LISTENING // REALTIME LINK OPEN');
     talk.title = 'Stop conversation';
   }
@@ -301,8 +319,9 @@
   function stopRealtime() {
     listening = false;
     browserSTT = false;
-    if (usesPipecat() && window.pixelPipecatVoice) {
+    if (activeTransport === 'pipecat' && window.pixelPipecatVoice) {
       window.pixelPipecatVoice.stop();
+      activeTransport = null;
       setStatus('STANDBY // READY');
       talk.title = 'Start conversation';
       return;
@@ -316,6 +335,7 @@
     interruptAudio();
     if (socket) socket.close();
     socket = null;
+    activeTransport = null;
     setStatus('STANDBY // READY');
     talk.title = 'Start conversation';
   }
