@@ -1,5 +1,4 @@
 (function () {
-  if (new URLSearchParams(location.search).has('embedded')) return;
   if (document.querySelector('.desktop-drawer')) return;
   const brand = document.querySelector('.brand');
   if (!brand) return;
@@ -18,6 +17,6 @@
   document.body.append(backdrop, drawer);
   const setOpen = open => { drawer.classList.toggle('open', open); backdrop.classList.toggle('open', open); toggle.setAttribute('aria-expanded', String(open)); };
   toggle.addEventListener('click', () => setOpen(true)); backdrop.addEventListener('click', () => setOpen(false)); drawer.querySelector('.drawer-close').addEventListener('click', () => setOpen(false));
-  const current = location.pathname || '/'; drawer.querySelectorAll('a[data-path]').forEach(link => { if (link.dataset.path === current) link.classList.add('active'); if (link.getAttribute('href') === '#') link.addEventListener('click', e => e.preventDefault()); });
+  const current = location.pathname || '/'; drawer.querySelectorAll('a[data-path]').forEach(link => { if (link.dataset.path === current) link.classList.add('active'); if (link.getAttribute('href') === '#') link.addEventListener('click', e => e.preventDefault()); else if (new URLSearchParams(location.search).has('embedded') && window.parent !== window) link.addEventListener('click', e => { e.preventDefault(); setOpen(false); window.parent.postMessage({type:'pixel:navigate',page:link.dataset.path === '/' ? 'talk' : link.dataset.path.slice(1)}, '*'); }); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
 })();

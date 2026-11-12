@@ -1,0 +1,1 @@
+.desktop-shell{transition:padding .32s ease,gap .32s ease}.desktop-nav{transition:transform .32s ease,opacity .24s ease,margin .32s ease}.desktop-content{transition:border-radius .32s ease}.talk-active .desktop-shell{padding:0;gap:0}.talk-active .desktop-nav{transform:translateX(-110%);opacity:0;pointer-events:none;margin-left:-236px}.talk-active .desktop-content{border-radius:0}
