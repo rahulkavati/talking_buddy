@@ -270,10 +270,17 @@
   async function startRealtime() {
     await unlockAudio();
     if (new URLSearchParams(location.search).get('voice') === 'pipecat' && window.pixelPipecatVoice) {
-      listening = true;
-      await window.pixelPipecatVoice.start({ onState: setStatus });
-      talk.title = 'Stop conversation';
-      return;
+      try {
+        await window.pixelPipecatVoice.start({ onState: setStatus });
+        listening = true;
+        talk.title = 'Stop conversation';
+        return;
+      } catch (error) {
+        // Keep the tested WebSocket path available if WebRTC or a provider
+        // cannot start. The user can continue talking without a dead button.
+        window.pixelPipecatVoice.stop();
+        setStatus('WEBRTC UNAVAILABLE // USING FALLBACK');
+      }
     }
     await connect();
     listening = true;
