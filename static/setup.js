@@ -46,5 +46,5 @@ async function installMissing() {
 
 function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 $('installMissing').addEventListener('click', installMissing);
-$('reviewList').addEventListener('click', () => document.querySelector('.readiness-card').scrollIntoView({behavior:'smooth'}));
+$('reviewList').addEventListener('click', () => { window.location.href = '/models'; });
 refreshStatus();
