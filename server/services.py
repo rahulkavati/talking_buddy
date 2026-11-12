@@ -19,6 +19,7 @@ from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnal
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.frames.frames import ErrorFrame, Frame, TranscriptionFrame
 from pipecat.services.kokoro.tts import KokoroTTSService
+from pipecat.services.settings import STTSettings
 from pipecat.services.ollama.llm import OLLamaLLMService
 from pipecat.services.stt_service import SegmentedSTTService
 from pipecat.transports.base_transport import TransportParams
@@ -78,6 +79,11 @@ class LocalMLXWhisperSTTService(SegmentedSTTService):
             sample_rate=16000,
             trailing_silence_secs=0.5,
             audio_passthrough=True,
+            ttfs_p99_latency=1.0,
+            settings=STTSettings(
+                model=cfg["stt"]["whisper_repo"],
+                language=Language.EN,
+            ),
         )
         self._cfg = cfg
 
