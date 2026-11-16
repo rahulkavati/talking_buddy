@@ -58,10 +58,29 @@ def _load_processors():
     return module
 
 
+# Choices made in the app (settings.json) that override config.yaml.
+# Keep in sync with _CFG_OVERRIDES in server.py; values are validated there on save.
+_SETTING_OVERRIDES = {
+    "model": ("brain", "model"), "voice": ("tts", "kokoro_voice"), "speed": ("tts", "speed"),
+    "web": ("web", "enabled"), "name": ("character", "name"),
+}
+
+
 def _load_config() -> dict[str, Any]:
+    import json
+
     import yaml
 
-    return yaml.safe_load((ROOT / "config.yaml").read_text())
+    cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
+    try:
+        stored = json.loads((ROOT / "settings.json").read_text())
+    except (OSError, ValueError):
+        stored = {}
+    if isinstance(stored, dict):
+        for key, (section, field) in _SETTING_OVERRIDES.items():
+            if stored.get(key) is not None:
+                cfg.setdefault(section, {})[field] = stored[key]
+    return cfg
 
 
 def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:

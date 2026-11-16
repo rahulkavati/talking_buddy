@@ -4,7 +4,7 @@ export const THEMES = {
   golden: {
     body: 0xd9443a, mitt: 0xcf3d34, eye: 0x0b1620, pupil: 0x69f0d6, rim: 0xffb873, sheen: 0xff9a8a, glow: 0,
     sky: { top: 0xbda8b8, mid: 0xefbaa2, low: 0xf8cf8a, glow: 0xffc870, gain: 1, glowK: .25, disc: 0xfff2b3, cloud: [0xffe4d6, 0xf0c2bc, 0xd2a8b4, 0xffd8a8] },
-    grass: { root: 0x2f4416, body: 0x6f8c36, light: 0x9fb040, gold: 0xffe9a0, warm: 0xffd98c, amb: 0xcfc596 },
+    grass: { root: 0x34471a, body: 0x6c8a30, light: 0x9fb040, gold: 0xffe48a, warm: 0xffd98c, amb: 0xcfc596 },
     ground: [[.075, .095, .03], [.2, .235, .07], [.46, .40, .14], [.43, .4, .24]],
     leaf: [0x9aa45a, 0x8a964c, 0x76843f, 0x66752f], haze: 0xd9b89a, hills: [0x8a8f66, 0x9a8c70],
     sun: 0xffc27a, sunI: 3.2, key: 0xffe6cf, keyI: 2.1, fill: 0xffd7bd, hemi: [0xf2cfc0, 0x7d8a3c, 1.25], motes: 0xfff0be, exposure: 1,

@@ -20,7 +20,7 @@
     $('modelNote').textContent = options.models_live ? 'Models already downloaded in Ollama. Add more on the Models & Tools page.' : 'Ollama isn’t running, so only the configured model is listed.';
     $('sttName').textContent = `Whisper · ${options.stt}`;
     $('pipecatOption').disabled = !options.pipecat_ready;
-    $('transportNote').textContent = options.pipecat_ready ? 'Classic is the tested link. WebRTC adds stronger echo cancellation and smarter turn-taking.' : 'WebRTC needs the full-duplex upgrade from Models & Tools. Classic is the tested link.';
+    $('transportNote').textContent = options.pipecat_ready ? 'Classic is the tested link. WebRTC is experimental: it uses its own turn-taking, so the sliders on this page do not apply to it.' : 'WebRTC needs the full-duplex upgrade from Models & Tools. Classic is the tested link.';
     $('cascadeLink').textContent = settings.transport === 'pipecat' ? 'WebRTC (Pipecat)' : 'Classic (WebSocket)';
     U.bindSettings(document, settings, save, formats);
   }

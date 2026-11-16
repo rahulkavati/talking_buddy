@@ -38,7 +38,7 @@
     if (peer) return;
     onState?.('CONNECTING // WEBRTC');
     stream = await withTimeout(navigator.mediaDevices.getUserMedia({ audio: {
-      echoCancellation: true, noiseSuppression: true, autoGainControl: true
+      echoCancellation: (window.PIXEL_SETTINGS || {}).echo !== false, noiseSuppression: true, autoGainControl: true
     }}), 10000, 'Microphone permission timed out');
     const track = stream.getAudioTracks()[0];
     if (!track || track.readyState !== 'live') throw new Error('Microphone track is not live');
@@ -91,9 +91,10 @@
           if (transcript) transcript.textContent = text.trim();
           if (type.includes('user')) window.pixelUser?.(text.trim());
         }
-        if (type === 'bot-started-speaking') onState?.('SPEAKING // PIPECAT AUDIO');
-        if (type === 'bot-stopped-speaking') onState?.('LISTENING // PIPECAT WEBRTC');
-        if (type === 'bot-interrupted') onState?.('LISTENING // PIPECAT INTERRUPTED');
+        // The HUD and the buddy's mouth follow animateSpeaking, exactly as on the Classic link.
+        if (type === 'bot-started-speaking') { onState?.('SPEAKING // PIPECAT AUDIO'); window.animateSpeaking?.(true); }
+        if (type === 'bot-stopped-speaking') { onState?.('LISTENING // PIPECAT WEBRTC'); window.animateSpeaking?.(false); }
+        if (type === 'bot-interrupted') { onState?.('LISTENING // PIPECAT INTERRUPTED'); window.animateSpeaking?.(false); }
         if (type.includes('error')) onState?.('PIPECAT ERROR // ' + (message?.error || text || 'unknown'));
       } catch (_) {
         // Data-channel messages are optional UI telemetry; audio must continue.
@@ -109,6 +110,8 @@
       }
       audio.srcObject = event.streams[0];
       audio.play().catch(() => onState?.('CLICK TO UNMUTE // WEBRTC'));
+      // Feed Pixel's voice to the lip-sync analyser; audio still plays through the element above.
+      try { window.pixelTap?.(meterContext.createMediaStreamSource(event.streams[0]), meterContext); } catch (_) { /* lip-sync is optional */ }
     };
     peer.onconnectionstatechange = () => {
       if (['failed', 'closed', 'disconnected'].includes(peer.connectionState)) {
@@ -152,6 +155,7 @@
 
   function stop() {
     window.pixelPipecatActive = false;
+    window.animateSpeaking?.(false);
     peer?.close();
     peer = null;
     stream?.getTracks().forEach(track => track.stop());

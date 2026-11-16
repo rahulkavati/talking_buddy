@@ -82,7 +82,7 @@ function refreshUI() {
   if (!px) return;
   const raw = statusEl?.textContent || '', st = raw.toUpperCase();
   let state = 'idle';
-  if (/ERROR|UNAVAILABLE|LINK LOST/.test(st)) state = 'error';
+  if (/ERROR|UNAVAILABLE|LINK LOST|MUTED|CLICK TO UNMUTE/.test(st)) state = 'error';
   else if (speaking || performance.now() < speakHold) state = 'speaking';   // the hold bridges the gap between sentences
   else if (/THINK|PROCESS|TRANSCRIB|SPEAK/.test(st)) state = 'thinking';
   else if (/LISTEN|HEARING|WHISPER|CAPTION/.test(st)) state = 'listening';
@@ -131,7 +131,9 @@ window.pixelToken = text => { if (text) replyBox().textContent += text; };
 window.pixelReply = text => { replyBox().textContent = text || ''; };
 
 /* ---------- camera director + touch ---------- */
-const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1, dist: 7.5, ty: 1.5, drag: false, moved: 0, idle: 0, close: false };
+// Open on the widest comfortable framing so the buddy and meadow are visible.
+// Wheel zoom can still move between 0.6x and 1.4x after the page opens.
+const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1.4, dist: 7.5, ty: 1.5, drag: false, moved: 0, idle: 0, close: false };
 const dom = renderer.domElement, ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
 let sq = 0, sqv = 0, pokeT = 0;
 addEventListener('pointermove', e => {
