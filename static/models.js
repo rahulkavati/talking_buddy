@@ -1,49 +1,42 @@
-if (new URLSearchParams(location.search).has('embedded')) document.body.classList.add('embedded');
-const groupMap = {
-  hearing: { title:'HEARING', ids:['whisper','silero','smart_turn'] },
-  thinking: { title:'THINKING & SPEAKING', ids:['brain','kokoro'] },
-  plumbing: { title:'FULL-DUPLEX PLUMBING', ids:['webrtc','ollama','moshi'] }
-};
-const actionIds = new Set(['brain','whisper','kokoro','smart_turn','webrtc']);
-let items = [];
-const $ = id => document.getElementById(id);
+// Models & Tools: live install status, per-item actions and download progress.
+(() => {
+  const U = PixelUI, $ = id => document.getElementById(id);
+  U.mountSidebar('models');
+  const GROUPS = [['hearing', 'Hearing'], ['thinking', 'Thinking & speaking'], ['plumbing', 'Full-duplex upgrade']];
+  // One install covers several rows; only this row shows the button.
+  const ACTION_OWNER = { voice_stack: 'pipecat' };
 
-async function load() {
-  $('groups').innerHTML = '<div class="loading">CHECKING LOCAL SERVICES…</div>';
-  const response = await fetch('/api/system/status');
-  const data = await response.json();
-  items = enrich(data.items || []);
-  render();
-}
-function enrich(serverItems) {
-  const byId = Object.fromEntries(serverItems.map(item => [item.id, item]));
-  return [
-    {id:'whisper',name:'Whisper Small',kind:'Fast streaming speech-to-text',detail:'Local transcription',ready:byId.whisper?.ready,installed:byId.whisper?.installed},
-    {id:'silero',name:'Silero VAD',kind:'Detects when you start and stop talking',detail:'Voice activity detection',ready:true,installed:true},
-    {id:'smart_turn',name:'Smart Turn v3.2',kind:'Knows if you’re done or just pausing',detail:'Semantic turn detection',ready:false,installed:false},
-    {id:'brain',name:byId.brain?.name || 'Gemma 3 4B',kind:'Local language model via Ollama',detail:'Conversation model',ready:byId.brain?.ready,installed:byId.brain?.installed},
-    {id:'kokoro',name:'Kokoro TTS',kind:'Natural streaming voice',detail:'Local speech synthesis',ready:byId.kokoro?.ready,installed:byId.kokoro?.installed},
-    {id:'webrtc',name:'WebRTC Echo Cancellation',kind:'Lets you interrupt without Pixel hearing itself',detail:'Full-duplex audio plumbing',ready:false,installed:false},
-    {id:'ollama',name:'Ollama runtime',kind:'Local model runtime',detail:byId.ollama?.detail || 'Local runtime',ready:byId.ollama?.ready,installed:byId.ollama?.installed},
-    {id:'moshi',name:'Moshi (Kyutai) · 4-bit MLX',kind:'Experimental speech-to-speech',detail:'Optional future engine',ready:false,installed:false,optional:true}
-  ];
-}
-function render() {
-  const missing = items.filter(item => !item.ready && !item.optional && actionIds.has(item.id)).length;
-  $('navMissing').textContent = missing;
-  $('groups').innerHTML = Object.values(groupMap).map(group => `<section class="group"><p class="group-title">${group.title}</p>${group.ids.map(id => row(items.find(item => item.id === id))).join('')}</section>`).join('');
-  $('groups').querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => setup(button.dataset.action, button)));
-}
-function row(item) {
-  if (!item) return '';
-  const icon = item.id === 'kokoro' ? 'K' : item.id === 'moshi' ? 'Mo' : item.name.slice(0,1);
-  const color = item.id === 'kokoro' ? 'teal' : item.id === 'moshi' ? 'purple' : ['smart_turn','webrtc'].includes(item.id) ? 'orange' : '';
-  const state = item.ready ? 'ready' : item.optional ? 'optional' : 'missing';
-  const label = item.ready ? 'Installed' : item.optional ? 'Optional' : 'Not installed';
-  const button = !item.ready && !item.optional && actionIds.has(item.id) ? `<button class="small-button" data-action="${item.id}">Install</button>` : '';
-  return `<article class="tool-row"><div class="tool-icon ${color}">${icon}</div><div class="tool-copy"><h2>${escapeHtml(item.name)}</h2><p>${escapeHtml(item.kind)} · ${escapeHtml(item.detail)}</p></div><div class="tool-actions"><span class="status ${state}">${label}</span>${button}</div></article>`;
-}
-async function setup(action, button) { button.disabled = true; button.textContent = 'Working…'; await fetch('/api/system/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})}); await load(); }
-async function installAll() { $('installAll').disabled = true; for (const item of items.filter(item => !item.ready && actionIds.has(item.id))) await fetch('/api/system/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:item.id})}); await load(); $('installAll').disabled = false; }
-function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-$('refresh').addEventListener('click',load); $('installAll').addEventListener('click',installAll); load().catch(() => { $('groups').innerHTML = '<div class="loading">Unable to reach the local service.</div>'; });
+  const watcher = U.createSystemWatcher(render, error => {
+    $('groups').innerHTML = `<div class="card empty"><strong>Can’t reach Pixel’s local service</strong>${U.escapeHtml(error.message)}</div>`;
+    $('installAll').disabled = true;
+  });
+
+  function row(item, jobs) {
+    const state = U.itemState(item, jobs), job = item.action ? jobs[item.action] : null;
+    const owns = item.action && (ACTION_OWNER[item.action] || item.id) === item.id;
+    const detail = [item.kind, state.busy ? state.message : item.detail, !item.ready && item.size_bytes ? `about ${U.fmtBytes(item.size_bytes)}` : ''].filter(Boolean).join(' · ');
+    const note = state.error || (!state.busy && item.hint) || (!owns && item.action && !state.busy ? 'Installs with Pipecat.' : '');
+    let action = '';
+    if (!state.busy && owns) action = `<button class="button primary small" data-action="${item.action}">${job?.state === 'error' ? 'Retry' : item.action === 'ollama' ? 'Start' : 'Install'}</button>`;
+    else if (item.url && !item.ready) action = `<a class="button secondary small" href="${U.escapeHtml(item.url)}" target="_blank" rel="noopener">Get it</a>`;
+    const bar = state.busy ? `<div class="progress${state.progress == null ? ' indeterminate' : ''}"><span style="width:${Math.round((state.progress || 0) * 100)}%"></span></div>` : '';
+    return `<article class="row"><div class="tool-icon ${state.tone}">${U.escapeHtml(item.name.replace(/[^A-Za-z]/g, '').slice(0, item.id === 'moshi' ? 2 : 1).replace(/^./, c => c.toUpperCase()))}</div>
+      <div class="row-copy"><h3>${U.escapeHtml(item.name)}</h3><p>${U.escapeHtml(detail)}</p>${note ? `<p class="${state.error ? 'err' : ''}">${U.escapeHtml(note)}</p>` : ''}${bar}</div>
+      <div class="row-actions"><span class="status ${state.tone}">${U.escapeHtml(state.label)}</span>${action}</div></article>`;
+  }
+
+  function render(data) {
+    const { items, jobs } = data, busy = Object.values(jobs).some(U.jobActive);
+    const actions = U.missingActions(items, true);
+    U.setNavBadge(items.filter(item => item.required && !item.ready).length);
+    U.setSideFoot(data.machine);
+    $('installAll').disabled = busy || !actions.length;
+    $('installAll').textContent = busy ? 'Installing…' : actions.length ? 'Install all missing' : 'Everything required is ready';
+    $('installAll').onclick = () => watcher.install(actions);
+    $('groups').innerHTML = GROUPS.map(([id, title]) => `<section class="group" style="margin-bottom:14px"><p class="group-title">${title}</p>${items.filter(item => item.group === id).map(item => row(item, jobs)).join('')}</section>`).join('');
+    $('groups').querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => { button.disabled = true; watcher.install([button.dataset.action]); }));
+  }
+
+  $('refresh').addEventListener('click', async () => { $('refresh').disabled = true; await watcher.refresh(); $('refresh').disabled = false; });
+  watcher.refresh();
+})();

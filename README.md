@@ -12,7 +12,7 @@ The project now includes an Electron desktop shell. It opens the existing local 
     npm install
     npm run desktop
 
-Use the gear button in the app to inspect local dependency status. The setup actions can prepare the configured Ollama brain, download the Whisper model, and install Kokoro dependencies. The first setup may take a few minutes and requires internet access.
+Open **Models & Tools** in the app to see what is installed. It can start Ollama, download the configured model, install Whisper and Kokoro (including Kokoro's voice files) and install the Pipecat full-duplex upgrade, with progress shown for each. The first setup needs internet access and can take a few minutes.
 
 ## Setup (about 15 minutes, needs internet once for downloads)
 
@@ -101,7 +101,7 @@ microphone -> WebRTC -> Silero VAD -> Smart Turn -> streaming STT
 
 The microphone remains open while Pixel speaks. A genuine barge-in cancels pending LLM/TTS work, flushes queued audio, and preserves only the assistant text that was actually heard. The client handles playback and avatar lip-sync; the server owns orchestration, model calls, cancellation, and metrics.
 
-The current desktop build uses Pipecat/WebRTC as the configured primary transport. The original PCM WebSocket pipeline remains available as an automatic fallback while the browser microphone/audio round-trip is being exercised.
+The desktop build currently defaults to the validated local PCM WebSocket pipeline (`voice.transport: "websocket"`), because the Electron WebRTC microphone sender is still being repaired. Pipecat/WebRTC stays available with `?voice=pipecat` (or `voice.transport: "pipecat"`), remains the automatic fallback for the WebSocket path, and now applies the same opt-in web-search trigger as the WebSocket route.
 
 ### Provider and security rules
 
@@ -112,3 +112,23 @@ The current desktop build uses Pipecat/WebRTC as the configured primary transpor
 - The supplied `local-voice-assistant` archive is the Pipecat architecture reference. Its constructors and callback names must be validated against the pinned installed Pipecat version before they become production code.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the migration phases and target repository layout.
+
+## Screens
+
+| Screen | Path | What it does |
+|---|---|---|
+| Talk | `/` | The buddy, live transcript, reply-delay timer, mic and text input |
+| Setup | `/setup` | First-run check of this computer and one-click install of what is missing |
+| Models & Tools | `/models` | Per-item status, install/start actions and download progress |
+| Conversation Engine | `/engine` | Turn patience, interrupt sensitivity, speed, echo cancellation, barge-in, audio link, model and voice |
+| Latency Lab | `/latency` | Reply delays recorded from real conversations, plus a timed speed test |
+| Voice & Look | `/look` | Theme, voice preview, buddy name, graphics quality, reduced motion |
+| Settings | `/settings` | Web-search switch, microphone test, data reset, version info |
+| Desktop shell | `/desktop` | What Electron loads: navigation around the screens above |
+
+Choices made in the app are saved to `settings.json` (git-ignored) and layered over `config.yaml`, which stays hand-editable. See `docs/UI.md` for how the UI is put together.
+
+## Tests
+
+    python -m unittest discover -s tests      # API and voice tests
+    npm run test:ui                           # UI helper tests (Node 18+)

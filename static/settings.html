@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel · Settings</title><link rel="stylesheet" href="/static/pixel-ui.css"></head>
+<body><div class="app-shell"><aside class="sidebar" id="side"></aside><main class="content" id="main">
+<header class="page-head"><div><p class="eyebrow">Settings</p><h1>Settings</h1><p class="sub">Privacy, microphone and housekeeping.</p></div></header>
+<section class="cols" id="controls">
+<article class="card"><h2>Conversation</h2>
+<label class="switch"><input type="checkbox" data-setting="web"><span class="track"></span><span><strong>Web search on request</strong><small id="webNote">Only when you ask for it out loud</small></span></label>
+<label class="switch"><input type="checkbox" data-setting="show_delay"><span class="track"></span><span><strong>Show reply delay</strong><small>The small timer at the top of Talk</small></span></label></article>
+<article class="card"><h2>Microphone</h2><p class="sub" id="micState">Check that Pixel can hear you.</p>
+<div class="meter" aria-hidden="true"><span id="micLevel"></span></div>
+<div class="inline"><button class="button secondary" id="micTest">Test microphone</button></div></article>
+<article class="card"><h2>Your data</h2><p class="sub">Everything is stored on this computer.</p>
+<div class="inline"><button class="button secondary" id="resetChat">Forget this conversation</button><button class="button secondary" id="clearTurns">Clear speed history</button><button class="button danger" id="resetAll">Reset all settings</button></div></article>
+<article class="card"><h2>About</h2><div id="about"></div><div class="inline"><button class="button secondary" id="openSetup">Open setup screen</button></div></article>
+</section>
+</main></div>
+<script src="/static/pixel-ui.js"></script><script src="/static/settings.js"></script></body></html>

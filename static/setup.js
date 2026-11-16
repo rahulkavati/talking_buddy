@@ -1,53 +1,48 @@
-const $ = id => document.getElementById(id);
-let systemItems = [];
+// First-run screen: real machine facts, real readiness, one button to install what is missing.
+(() => {
+  const U = PixelUI, $ = id => document.getElementById(id);
+  if (new URLSearchParams(location.search).has('inset')) document.body.classList.add('inset');
+  let primaryAction = () => watcher.refresh();
 
-async function refreshStatus() {
-  try {
-    const response = await fetch('/api/system/status');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || 'Status unavailable');
-    systemItems = data.items || [];
-    renderStatus();
-  } catch (error) {
-    $('readinessList').innerHTML = '<div class="loading">Local service unavailable. Start the app service and try again.</div>';
+  const watcher = U.createSystemWatcher(render, error => {
+    $('readinessList').innerHTML = `<div class="empty"><strong>Can’t reach Pixel’s local service</strong>${U.escapeHtml(error.message)}</div>`;
     $('readySummary').textContent = 'Unavailable';
+    setPrimary('Try again', () => watcher.refresh());
+  });
+
+  function setPrimary(label, action, disabled = false) {
+    $('primary').textContent = label; $('primary').disabled = disabled; primaryAction = action;
   }
-}
 
-function renderStatus() {
-  const ready = systemItems.filter(item => item.ready).length;
-  const total = systemItems.length || 1;
-  const missing = systemItems.filter(item => !item.ready && item.id !== 'ollama').length;
-  $('readySummary').textContent = `${ready} of ${total} ready`;
-  $('readyProgress').style.width = `${Math.round(ready / total * 100)}%`;
-  $('missingCount').textContent = `(${missing})`;
-  $('downloadSize').textContent = missing ? 'a few GB' : '0 GB';
-  $('machineMeta').textContent = 'Local services checked · private by default';
-  $('readinessList').innerHTML = systemItems.map(item => {
-    const kind = item.kind || 'System component';
-    const state = item.ready ? 'ready' : item.id === 'ollama' ? 'optional' : 'missing';
-    const label = item.ready ? 'Ready' : item.id === 'ollama' ? 'Installed' : 'Missing';
-    return `<div class="status-row"><span class="status-pill ${state}">${label}</span><span>${escapeHtml(item.name)} · ${escapeHtml(kind)}</span></div>`;
-  }).join('');
-}
+  function render(data) {
+    const { machine, items, jobs, summary } = data;
+    $('machineIcon').textContent = (machine.os || '?').slice(0, 1).toUpperCase();
+    $('machineName').textContent = `${machine.os} ${machine.os_version} · ${machine.chip}`;
+    $('machineMeta').textContent = U.machineLine(machine);
+    $('readySummary').textContent = `${summary.ready} of ${summary.required} ready`;
+    $('readyProgress').style.width = `${summary.required ? summary.ready / summary.required * 100 : 0}%`;
 
-async function installMissing() {
-  const missing = systemItems.filter(item => !item.ready && ['brain', 'whisper', 'kokoro'].includes(item.id));
-  $('installMissing').disabled = true;
-  $('installMissing').textContent = 'Setting up…';
-  for (const item of missing) {
-    $('readySummary').textContent = `Setting up ${item.name}…`;
-    await fetch('/api/system/setup', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:item.id}) });
+    const required = items.filter(item => item.required), todo = required.filter(item => !item.ready);
+    const actions = U.missingActions(items, true), busy = Object.values(jobs).some(U.jobActive);
+    const bytes = todo.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+    $('privacy').textContent = todo.length && bytes ? `Nothing leaves this computer · about ${U.fmtBytes(bytes)} to download` : 'Nothing leaves this computer';
+
+    if (!todo.length) {
+      $('headline').innerHTML = 'You’re all set.'; $('lede').textContent = 'Everything Pixel needs is installed and running on this computer.';
+      setPrimary('Start talking', () => U.navigate('talk'));
+    } else if (busy) setPrimary('Setting up…', () => {}, true);
+    else if (actions.length) setPrimary(`Install missing items (${todo.filter(item => item.action).length})`, () => watcher.install(actions));
+    else setPrimary('Re-check', () => watcher.refresh());
+
+    const order = [...required, ...items.filter(item => !item.required)];
+    $('readinessList').innerHTML = order.map(item => {
+      const state = U.itemState(item, jobs);
+      const note = state.error || (state.busy ? state.message : item.hint) || '';
+      return `<div class="row"><span class="status ${state.tone}">${U.escapeHtml(state.label)}</span><div class="row-copy"><h3>${U.escapeHtml(item.name)} · ${U.escapeHtml(item.kind)}</h3>${note ? `<p class="${state.error ? 'err' : ''}">${U.escapeHtml(note)}</p>` : ''}</div></div>`;
+    }).join('');
   }
-  await refreshStatus();
-  $('installMissing').disabled = false;
-  $('installMissing').innerHTML = 'Install missing items <span id="missingCount">(0)</span>';
-}
 
-function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-$('installMissing').addEventListener('click', installMissing);
-$('reviewList').addEventListener('click', () => {
-  if (window.parent !== window) window.parent.postMessage({type:'pixel:navigate',page:'talk'}, '*');
-  else window.location.href = '/';
-});
-refreshStatus();
+  $('primary').addEventListener('click', () => primaryAction());
+  $('review').addEventListener('click', () => U.navigate('models'));
+  watcher.refresh();
+})();

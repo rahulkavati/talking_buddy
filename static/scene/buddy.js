@@ -18,16 +18,17 @@ const noiseTex = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.drawImage(s, 0, 0, 256, 256);
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3); return t;
 })();
+export const rimU = { value: new THREE.Color(1, .72, .45) };
 const rimPatch = sh => {
-  sh.uniforms.rimDir = { value: SUN_DIR.clone() };
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 rimDir;')
+  sh.uniforms.rimDir = { value: SUN_DIR.clone() }; sh.uniforms.rimCol = rimU;
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 rimDir,rimCol;')
     .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
       {
         vec3 vd=normalize(vViewPosition);
         float fr=pow(1.-clamp(dot(normal,vd),0.,1.),2.4);
         vec3 ld=normalize((viewMatrix*vec4(rimDir,0.)).xyz);
         float back=clamp(dot(normal,ld)*.6+.55,0.,1.);
-        totalEmissiveRadiance+=vec3(1.,.72,.45)*fr*back*.55;                 // warm golden-hour rim
+        totalEmissiveRadiance+=rimCol*fr*back*.55;                 // warm golden-hour rim
         totalEmissiveRadiance+=diffuseColor.rgb*.07;                         // faint subsurface fill so shadows stay warm, never grey
       }`);
 };
@@ -116,5 +117,5 @@ export function buildBuddy(scene) {
 
   root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   bench.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return { root, float, squash, body, eyes, mouthG: mG, mouth, tongue, antenna, hands, blob, bench, REST_Y, SEAT };
+  return { M, root, float, squash, body, eyes, mouthG: mG, mouth, tongue, antenna, hands, blob, bench, REST_Y, SEAT };
 }

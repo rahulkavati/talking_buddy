@@ -42,6 +42,22 @@ def _load_services():
     return module
 
 
+def _load_processors():
+    """Load the project frame processors (web gate) for this session."""
+    name = "talking_buddy_voice_processors"
+    loaded = sys.modules.get(name)
+    if loaded:
+        return loaded
+    path = ROOT / "server" / "processors.py"
+    spec = importlib.util.spec_from_file_location(name, path)
+    if not spec or not spec.loader:
+        raise RuntimeError(f"Cannot load voice processors from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_config() -> dict[str, Any]:
     import yaml
 
@@ -51,6 +67,7 @@ def _load_config() -> dict[str, Any]:
 def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
     """Build one isolated Pipecat pipeline and its runner for a peer."""
     services = _load_services()
+    processors = _load_processors()
     cfg = _load_config()
     providers = services.build_services(cfg)
     transport = services.build_transport(connection)
@@ -82,6 +99,9 @@ def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
             transport.input(),
             VADProcessor(vad_analyzer=providers.vad),
             providers.stt,
+            # Same opt-in web trigger as the WebSocket path, so both transports
+            # agree on when the internet is used.
+            processors.WebGateProcessor(cfg),
             user_context,
             providers.llm,
             assistant_context,

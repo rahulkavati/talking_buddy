@@ -8,13 +8,11 @@
   const rightPanel = document.getElementById('rightPanel');
   if (!talk || !transcript) return;
 
-  const fallbackForm = form?.onsubmit;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let socket = null;
   let recognition = null;
   let listening = false;
   let browserSTT = false;
-  let currentReply = null;
   let audioQueue = [];
   let playing = false;
   let activeSource = null;
@@ -30,7 +28,19 @@
   let pendingPcm = [];
   let pendingSamples = 0;
   let activeTransport = null;
-  const speechThreshold = 0.012;
+  let noiseFloor = 0.006;
+  let voicedMs = 0;
+  let utteranceMs = 0;
+  let bargeMs = 0;
+  let playbackTailUntil = 0;
+  const speechThreshold = 0.02;   // absolute gate; the adaptive floor sits above it
+  // Conversation feel comes from the Conversation Engine screen (server.py _CLIENT_DEFAULTS).
+  const prefs = window.PIXEL_SETTINGS || {};
+  const pct = (value, fallback) => Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : fallback;
+  const endSilenceMs = 350 + 7 * pct(prefs.patience, 50);            // pause that ends your turn (default 700 ms)
+  const bargeHoldMs = 320 - 2 * pct(prefs.interrupt, 72);            // how long you must talk over Pixel
+  const bargeThreshold = 0.09 - 0.0005 * pct(prefs.interrupt, 72);   // must clearly beat Pixel's own speaker echo
+  const bargeEnabled = prefs.barge_in !== false;
 
   function usesPipecat() {
     const requested = new URLSearchParams(location.search).get('voice');
@@ -58,8 +68,13 @@
   }
 
   const setStatus = value => {
-    status.textContent = value;
+    const label = value.includes('SPEAK') ? 'Speaking' : value.includes('THINK') || value.includes('PROCESS') || value.includes('TRANSCRIB') ? 'Thinking' : value.includes('HEARING') || value.includes('LISTEN') ? 'Listening' : 'Ready';
+    status.textContent = label;
+    status.dataset.raw = value;
+    status.closest('.status-pill')?.classList.toggle('speaking', label === 'Speaking');
+    status.closest('.status-pill')?.classList.toggle('busy', label === 'Thinking' || label === 'Listening');
     rightPanel.classList.toggle('listening', value.includes('LISTEN') || value.includes('HEARING'));
+    window.dispatchEvent(new CustomEvent('pixel:voice-stage', { detail: { value } }));
   };
 
   const unlockAudio = () => {
@@ -76,7 +91,14 @@
       while (audioQueue.length) {
         const encoded = audioQueue.shift();
         const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0));
-        const buffer = await audioContext.decodeAudioData(bytes.buffer);
+        let buffer;
+        try {
+          buffer = await audioContext.decodeAudioData(bytes.buffer);
+        } catch (error) {
+          // One unreadable clip must not silence the rest of the reply.
+          console.warn('Skipping undecodable audio clip:', error);
+          continue;
+        }
         await new Promise(resolve => {
           const source = audioContext.createBufferSource();
           activeSource = source;
@@ -94,6 +116,7 @@
     }
     activeSource = null;
     playing = false;
+    playbackTailUntil = Date.now() + 180;   // let the speaker finish ringing
     window.animateSpeaking?.(false);
   }
 
@@ -109,7 +132,7 @@
 
   async function startMicMeter() {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: {
-      echoCancellation: true, noiseSuppression: true, autoGainControl: true
+      echoCancellation: prefs.echo !== false, noiseSuppression: true, autoGainControl: true
     }});
     await audioContext.audioWorklet.addModule('/static/voice-capture-worklet.js');
     meterSource = audioContext.createMediaStreamSource(micStream);
@@ -118,37 +141,76 @@
     meterSink.gain.value = 0;
     speechStarted = false;
     silenceMs = 0;
+    voicedMs = 0;
+    utteranceMs = 0;
+    bargeMs = 0;
     pendingPcm = [];
     pendingSamples = 0;
     meterNode.port.onmessage = event => {
       const rms = event.data.rms || 0;
       const pcm = event.data.pcm;
+      window.dispatchEvent(new CustomEvent('pixel:voice-level', { detail: { rms } }));
       const frameMs = (pcm?.length || 0) / audioContext.sampleRate * 1000;
-      if (rms > speechThreshold && (playing || audioQueue.length) && Date.now() - lastBargeIn > 450) {
-        lastBargeIn = Date.now();
-        interruptAudio();
-        if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'cancel' }));
-        setStatus('HEARING YOU // INTERRUPTED');
-      }
       if (!listening || !pcm || !socket || socket.readyState !== WebSocket.OPEN) return;
-      if (rms > speechThreshold) {
-        if (!speechStarted) {
+
+      const speakingNow = playing || audioQueue.length > 0;
+      // Learn the room's noise floor so a fan or a quiet room moves the gate,
+      // instead of a fixed threshold that fires on breath and keyboard taps.
+      if (!speechStarted && !speakingNow) noiseFloor = noiseFloor * 0.97 + rms * 0.03;
+      const gate = Math.max(speechThreshold, noiseFloor * 2.5);
+
+      // Barge-in has to clearly beat Pixel's own voice. Otherwise speaker echo
+      // interrupts the reply and is then transcribed as a brand-new turn.
+      if (speakingNow) {
+        // A door slam is a blip, not an interruption: require sustained level.
+        const loud = rms > Math.max(bargeThreshold, noiseFloor * 6);
+        bargeMs = loud ? bargeMs + frameMs : 0;
+        if (bargeEnabled && bargeMs >= bargeHoldMs && Date.now() - lastBargeIn > 700) {
+          lastBargeIn = Date.now();
+          bargeMs = 0;
+          interruptAudio();
+          playbackTailUntil = Date.now() + 300;
+          voicedMs = 0;
+          if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'cancel' }));
+          setStatus('HEARING YOU // INTERRUPTED');
+        }
+        return;   // never stream our own audio back to Whisper
+      }
+      bargeMs = 0;
+      if (Date.now() < playbackTailUntil) { voicedMs = 0; return; }
+
+      if (rms > gate) {
+        voicedMs += frameMs;
+        if (!speechStarted && voicedMs >= 180) {
           speechStarted = true;
           silenceMs = 0;
+          utteranceMs = voicedMs;
           socket.send(JSON.stringify({ type: 'audio_start', sample_rate: audioContext.sampleRate }));
           setStatus('HEARING YOU // STREAMING');
         }
-        silenceMs = 0;
-        queuePcm(pcm);
+        if (speechStarted) {
+          silenceMs = 0;
+          utteranceMs += frameMs;
+          queuePcm(pcm);
+        }
       } else if (speechStarted) {
         queuePcm(pcm);
         silenceMs += frameMs;
-        if (silenceMs >= 700) {
+        voicedMs = 0;
+        if (silenceMs >= endSilenceMs) {
           speechStarted = false;
           silenceMs = 0;
           flushPcm();
-          socket.send(JSON.stringify({ type: 'audio_end' }));
-          setStatus('TRANSCRIBING // STREAMING WHISPER');
+          // A cough or a door is not a turn; drop anything under ~0.4 s.
+          if (utteranceMs >= 400) {
+            socket.send(JSON.stringify({ type: 'audio_end' }));
+            window.pixelTurnEnd?.(performance.now() - endSilenceMs, 'voice');   // you stopped talking this long ago
+            setStatus('TRANSCRIBING // STREAMING WHISPER');
+          } else if (socket?.readyState === WebSocket.OPEN) {
+            // Drop the blip without cancelling a reply that is in progress.
+            socket.send(JSON.stringify({ type: 'audio_discard' }));
+          }
+          utteranceMs = 0;
         }
       }
     };
@@ -165,19 +227,11 @@
     meterSource = meterNode = meterSink = micStream = null;
     speechStarted = false;
     silenceMs = 0;
+    voicedMs = 0;
+    utteranceMs = 0;
+    bargeMs = 0;
     pendingPcm = [];
     pendingSamples = 0;
-  }
-
-  function ensureReplyBox() {
-    if (!currentReply) {
-      document.getElementById('reply')?.remove();
-      currentReply = document.createElement('div');
-      currentReply.id = 'reply';
-      currentReply.style.cssText = 'margin-top:.55rem;color:#e9fff8;font:.88rem ui-monospace,monospace;text-align:right;line-height:1.55';
-      transcript.parentElement.append(currentReply);
-    }
-    return currentReply;
   }
 
   function connect() {
@@ -186,15 +240,22 @@
       const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
       socket = new WebSocket(`${scheme}://${location.host}/ws/realtime`);
       socket.onopen = resolve;
-      socket.onerror = reject;
-      socket.onclose = () => { socket = null; };
+      socket.onerror = () => reject(new Error('Pixel’s voice service is not reachable.'));
+      socket.onclose = () => {
+        socket = null;
+        // A dropped link must not leave the UI "listening" to nothing.
+        if (listening && activeTransport === 'websocket') {
+          stopRealtime();
+          setStatus('LINK ERROR // The voice link closed. Tap the mic to reconnect.');
+        }
+      };
       socket.onmessage = event => {
         const message = JSON.parse(event.data);
         // A cancelled turn can still have one network packet in flight. Ignore
         // it so old speech never plays over the user's new utterance.
         if (message.turn && message.type !== 'user_text' && message.turn !== activeTurn) return;
         if (message.type === 'partial_transcript') {
-          if (listening && !speechStarted) {
+          if (listening) {
             transcript.textContent = message.text;
             setStatus('TRANSCRIBING // LIVE WHISPER');
           }
@@ -208,7 +269,6 @@
           transcript.textContent = message.text;
           window.pixelUser?.(message.text);
           document.getElementById('reply')?.remove();
-          currentReply = null;
           interruptAudio();
         } else if (message.type === 'state') {
           setStatus(message.value === 'THINKING' ? 'THINKING // STREAMING' : 'SPEAKING // AUDIO LINK');
@@ -340,25 +400,53 @@
     talk.title = 'Start conversation';
   }
 
-  talk.onclick = () => listening ? stopRealtime() : startRealtime().catch(error => setStatus('LINK ERROR // ' + error.message));
+  // Typed prompts and prompt chips work in every mode. WebRTC cannot accept
+  // text (there is no RTVI text frame in this build), so they use the HTTP path
+  // and render the reply instead of doing nothing.
+  async function httpChat(text) {
+    text = (text || '').trim();
+    if (!text) return;
+    interruptAudio();
+    setStatus('THINKING // STREAMING');
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    transcript.textContent = text;
+    window.pixelUser?.(text);
+    window.pixelReply?.(data.reply || '');
+    setStatus('STANDBY // READY');
+  }
+
+  const explain = error => error?.name === 'NotAllowedError' ? 'Microphone access is blocked. Allow it in your system settings.'
+    : error?.name === 'NotFoundError' ? 'No microphone was found.' : (error?.message || 'The voice link could not start.');
+  let starting = false;
+  talk.onclick = async () => {
+    if (starting) return;
+    if (listening) { stopRealtime(); return; }
+    starting = true;
+    setStatus('PROCESSING // CONNECTING');
+    try { await startRealtime(); }
+    catch (error) { stopRealtime(); setStatus('LINK ERROR // ' + explain(error)); }
+    starting = false;
+  };
   if (form) form.onsubmit = event => {
     event.preventDefault();
     const text = input.value.trim();
     input.value = '';
+    if (!text) return;
+    window.pixelTurnEnd?.(performance.now(), 'text');
     if (socket?.readyState === WebSocket.OPEN) sendText(text);
-    else if (fallbackForm) fallbackForm(event);
+    else httpChat(text).catch(error => setStatus('LINK ERROR // ' + error.message));
   };
   document.querySelectorAll('.chip').forEach(button => {
     button.onclick = () => {
+      window.pixelTurnEnd?.(performance.now(), 'text');
       if (socket?.readyState === WebSocket.OPEN) sendText(button.dataset.prompt);
-      else window.fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: button.dataset.prompt }) });
+      else httpChat(button.dataset.prompt).catch(error => setStatus('LINK ERROR // ' + error.message));
     };
   });
 })();
-
-const desktopSettingsScript = document.createElement('script');
-desktopSettingsScript.src = '/static/desktop-settings.js';
-document.body.appendChild(desktopSettingsScript);
-const desktopDrawerScript = document.createElement('script');
-desktopDrawerScript.src = '/static/desktop-drawer.js';
-document.body.appendChild(desktopDrawerScript);

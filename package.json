@@ -4,6 +4,13 @@
   "private": true,
   "description": "Talking Buddy local voice companion desktop shell",
   "main": "desktop/main.js",
-  "scripts": { "desktop": "electron .", "desktop:dev": "electron ." },
-  "devDependencies": { "electron": "^39.0.0" }
+  "scripts": {
+    "desktop": "electron .",
+    "desktop:dev": "electron .",
+    "test:ui": "node --test tests/ui/pixel-ui.test.js",
+    "test": "python3 -m unittest discover -s tests && node --test tests/ui/pixel-ui.test.js"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0"
+  }
 }

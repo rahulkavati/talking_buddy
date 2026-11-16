@@ -1,18 +1,24 @@
-const frame = document.getElementById('pageFrame');
-const links = [...document.querySelectorAll('.desktop-nav a[data-page]')];
-const destinations = {setup:'/setup',talk:'/?embedded=1',models:'/models?embedded=1',engine:'/engine?embedded=1',latency:'/latency?embedded=1'};
-function setPage(page) {
-  const target = destinations[page];
-  if (!target) return;
-  document.body.classList.toggle('talk-active', page === 'talk');
-  document.body.classList.toggle('setup-active', page === 'setup');
-  links.forEach(item => item.classList.toggle('active', item.dataset.page === page));
-  frame.src = target;
-}
-links.forEach(link => link.addEventListener('click', event => {
-  const page = link.dataset.page;
-  if (!destinations[page]) { event.preventDefault(); return; }
-  event.preventDefault(); setPage(page);
-}));
-window.addEventListener('message', event => { if (event.data?.type === 'pixel:navigate') setPage(event.data.page); });
-setPage('setup');
+// Desktop shell: persistent navigation around an iframe. Opens on Setup only when something required is missing.
+(async () => {
+  const U = PixelUI, frame = document.getElementById('pageFrame');
+  const mac = window.desktopApp?.platform === 'darwin';
+  const FULL_SCREEN = new Set(['setup', 'talk']);
+  document.body.classList.toggle('mac', mac);
+
+  function setPage(page) {
+    const href = U.hrefFor(page);
+    if (!href) return;
+    document.body.classList.toggle('full', FULL_SCREEN.has(page));
+    U.markActive(page);
+    document.title = `Pixel · ${page === 'setup' ? 'Setup' : U.NAV.find(item => item.id === page).label}`;
+    frame.src = `${href}?embedded=1${mac ? '&inset=1' : ''}`;
+  }
+  U.mountSidebar(null, { onNavigate: setPage });
+  window.addEventListener('message', event => {
+    if (event.origin === location.origin && event.source === frame.contentWindow && event.data?.type === 'pixel:navigate') setPage(event.data.page);
+  });
+
+  let start = 'setup';
+  try { const { summary } = await U.api('/api/system/status'); if (summary.ready >= summary.required) start = 'talk'; } catch (_) { /* Setup explains the problem */ }
+  setPage(start);
+})();

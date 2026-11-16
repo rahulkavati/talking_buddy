@@ -7,6 +7,10 @@
   let audio = null;
   let pcId = null;
   let rtvi = null;
+  let meterContext = null;
+  let meterSource = null;
+  let meterAnalyser = null;
+  let meterFrame = null;
 
   function withTimeout(promise, ms, message) {
     let timer;
@@ -36,6 +40,26 @@
     stream = await withTimeout(navigator.mediaDevices.getUserMedia({ audio: {
       echoCancellation: true, noiseSuppression: true, autoGainControl: true
     }}), 10000, 'Microphone permission timed out');
+    const track = stream.getAudioTracks()[0];
+    if (!track || track.readyState !== 'live') throw new Error('Microphone track is not live');
+    track.onmute = () => onState?.('MICROPHONE MUTED');
+    track.onunmute = () => onState?.('LISTENING // PIPECAT WEBRTC');
+    meterContext = new (window.AudioContext || window.webkitAudioContext)();
+    await meterContext.resume();
+    meterSource = meterContext.createMediaStreamSource(stream);
+    meterAnalyser = meterContext.createAnalyser();
+    meterAnalyser.fftSize = 256;
+    meterSource.connect(meterAnalyser);
+    const meterData = new Uint8Array(meterAnalyser.fftSize);
+    const sampleMeter = () => {
+      if (!meterAnalyser) return;
+      meterAnalyser.getByteTimeDomainData(meterData);
+      let sum = 0;
+      for (const value of meterData) { const centered = (value - 128) / 128; sum += centered * centered; }
+      window.dispatchEvent(new CustomEvent('pixel:voice-level', { detail: { rms: Math.sqrt(sum / meterData.length) } }));
+      meterFrame = requestAnimationFrame(sampleMeter);
+    };
+    sampleMeter();
     peer = new RTCPeerConnection();
     stream.getTracks().forEach(track => peer.addTrack(track, stream));
     // addTrack creates the single send/receive audio transceiver expected by
@@ -104,16 +128,42 @@
     if (!response.ok) throw new Error(answer.error || 'Pipecat WebRTC offer failed');
     pcId = answer.pc_id;
     await peer.setRemoteDescription(answer);
+    // Candidates found after the offer was sent are not in the SDP, so forward
+    // them as trickle ICE instead of dropping them.
+    peer.onicecandidate = event => {
+      if (!event.candidate || !pcId) return;
+      const candidate = event.candidate.toJSON();
+      fetch('/api/voice/webrtc/ice', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pc_id: pcId,
+          candidates: [{
+            candidate: candidate.candidate,
+            sdp_mid: candidate.sdpMid,
+            sdp_mline_index: candidate.sdpMLineIndex,
+          }],
+        }),
+      }).catch(() => {});
+    };
+    window.pixelPipecatActive = true;
     onState?.('LISTENING // PIPECAT WEBRTC');
   }
 
   function stop() {
+    window.pixelPipecatActive = false;
     peer?.close();
     peer = null;
     stream?.getTracks().forEach(track => track.stop());
     stream = null;
     audio?.remove();
     audio = null;
+    if (meterFrame) cancelAnimationFrame(meterFrame);
+    meterFrame = null;
+    meterSource?.disconnect();
+    meterAnalyser?.disconnect();
+    meterContext?.close();
+    meterSource = meterAnalyser = meterContext = null;
     rtvi?.close();
     rtvi = null;
     pcId = null;

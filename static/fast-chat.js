@@ -2,6 +2,9 @@
 // This makes the conversation feel responsive even when TTS takes another moment.
 const nativeFetch = window.fetch.bind(window);
 let playbackContext = null;
+// Read the live transport instead of guessing from the URL: WebRTC can be
+// configured in config.yaml or start via failover without a `?voice=` param.
+const pipecatActive = () => window.pixelPipecatActive === true;
 const unlockAudio = () => {
   if (!playbackContext) playbackContext = new (window.AudioContext || window.webkitAudioContext)();
   if (playbackContext.state === 'suspended') playbackContext.resume();
@@ -27,6 +30,14 @@ window.fetch = async (resource, options) => {
 
   const response = await nativeFetch(resource, options);
   const data = await response.json();
+  // Pipecat owns the response audio in WebRTC mode. Do not synthesize a
+  // second browser-side voice for prompts or legacy chat requests.
+  if (pipecatActive()) {
+    return new Response(JSON.stringify(data), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   if (data.reply) {
     nativeFetch('/api/tts', {
       method: 'POST',

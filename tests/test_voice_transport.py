@@ -1,4 +1,4 @@
-"""Regression checks for the Pipecat/WebRTC migration boundary."""
+"""Regression checks for the voice transport migration boundary."""
 
 from pathlib import Path
 import asyncio
@@ -56,13 +56,13 @@ class VoiceTransportTests(unittest.TestCase):
         with TestClient(server.app) as client:
             response = client.get("/api/voice/status")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["transport"], "pipecat")
-        self.assertEqual(response.json()["fallback"], "websocket")
+        self.assertEqual(response.json()["transport"], "websocket")
+        self.assertEqual(response.json()["fallback"], "pipecat")
 
     def test_index_exposes_pipecat_client(self):
         with TestClient(server.app) as client:
             html = client.get("/").text
-        self.assertIn('window.PIXEL_VOICE_TRANSPORT="pipecat"', html)
+        self.assertIn('window.PIXEL_VOICE_TRANSPORT="websocket"', html)
         self.assertIn('/static/pipecat-webrtc.js', html)
         client = (ROOT / "static" / "pipecat-webrtc.js").read_text()
         self.assertIn("type: 'client-ready'", client)
@@ -78,6 +78,10 @@ class VoiceTransportTests(unittest.TestCase):
         self.assertIn("setPermissionRequestHandler", main)
         self.assertIn("audioCapture", main)
         self.assertIn("127\\.0\\.0\\.1:8000", main)
+
+    def test_desktop_iframe_allows_microphone(self):
+        desktop = (ROOT / "static" / "desktop.html").read_text()
+        self.assertIn('allow="microphone; autoplay"', desktop)
 
 
 if __name__ == "__main__":

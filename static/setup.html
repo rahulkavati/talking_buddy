@@ -1,28 +1,10 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Pixel · Setup</title>
-  <link rel="stylesheet" href="/static/setup.css"><link rel="stylesheet" href="/static/native-titlebar.css">
-</head>
-<body>
-  <main class="welcome-shell">
-    <section class="welcome-copy">
-      <div class="pixel-orb"><span>●</span></div>
-      <p class="eyebrow">WELCOME TO PIXEL</p>
-      <h1>Let’s get your<br>assistant ready.</h1>
-      <p class="lede">Everything runs on your Mac. I’ll check what’s already installed, and set up the rest for you.</p>
-      <div class="welcome-actions"><button class="primary" id="installMissing">Install missing items <span id="missingCount">(—)</span></button><button class="secondary" id="reviewList">Review list</button></div>
-      <p class="privacy"><b></b> Nothing leaves this computer <span>·</span> about <strong id="downloadSize">—</strong> to download</p>
-    </section>
-    <section class="readiness-card">
-      <div class="machine"><div class="machine-icon">M</div><div><p class="eyebrow">YOUR MAC</p><h2>Mac desktop · Apple Silicon</h2><p id="machineMeta">Checking memory and local services…</p></div></div>
-      <div class="rule"></div>
-      <div class="readiness-heading"><p class="eyebrow">READINESS</p><strong id="readySummary">Checking…</strong></div>
-      <div class="progress"><span id="readyProgress"></span></div>
-      <div id="readinessList" class="readiness-list"><div class="loading">CHECKING LOCAL SERVICES…</div></div>
-    </section>
-  </main>
-  <script src="/static/setup.js"></script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel · Setup</title><link rel="stylesheet" href="/static/pixel-ui.css"></head>
+<body><main class="welcome">
+<section><div class="buddy-orb" aria-hidden="true"><i></i><i></i></div><p class="eyebrow">Welcome to Pixel</p><h1 id="headline">Let’s get your<br>assistant ready.</h1>
+<p class="lede" id="lede">Everything runs on this computer. I’ll check what’s already installed and set up the rest for you.</p>
+<div class="welcome-actions"><button class="button primary big" id="primary" disabled>Checking…</button><button class="button secondary big" id="review">Review list</button></div>
+<p class="privacy"><b></b><span id="privacy">Nothing leaves this computer</span></p></section>
+<section class="card readiness" aria-live="polite"><div class="machine"><div class="tool-icon" id="machineIcon">M</div><div><p class="eyebrow">This computer</p><h2 id="machineName">Checking…</h2><p class="sub" id="machineMeta"></p></div></div>
+<div class="rule"></div><div class="readiness-heading"><p class="eyebrow">Readiness</p><strong id="readySummary"></strong></div>
+<div class="progress"><span id="readyProgress"></span></div><div id="readinessList" class="readiness-list"><div class="loading">Checking local services…</div></div></section>
+</main><script src="/static/pixel-ui.js"></script><script src="/static/setup.js"></script></body></html>

@@ -11,7 +11,7 @@ export function buildSky(scene) {
   // ---- gradient dome with analytic sun + halo ----
   const dome = new THREE.Mesh(new THREE.SphereGeometry(300, 48, 24), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { gain: { value: 1. }, glowK: { value: .25 }, sunDir: { value: SUN_DIR.clone() }, top: { value: C(0xbda8b8) }, mid: { value: C(0xefbaa2) }, low: { value: C(0xf8cf8a) }, glow: { value: C(0xffc870) }, core: { value: C(0xfffbe6) } },
+    uniforms: { gain: { value: 1. }, glowK: { value: .25 }, sunDir: { value: SUN_DIR.clone() }, top: { value: C(0xbda8b8) }, mid: { value: C(0xefbaa2) }, low: { value: C(0xf8cf8a) }, glow: { value: C(0xffc870) }, core: { value: C(0xfff2b3) } },
     vertexShader: 'varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
     fragmentShader: `uniform vec3 sunDir,top,mid,low,glow,core;uniform float gain,glowK;varying vec3 vD;
       void main(){
@@ -23,7 +23,7 @@ export function buildSky(scene) {
         c+=core*pow(s,900.)*.8;
         c=mix(c,low*.92,1.-smoothstep(-.12,0.,d.y));                      // below horizon blends to haze
         float sunMask=smoothstep(.9990,.99975,dot(d,sunDir));
-        c=c*gain;c=mix(c,vec3(1.,.95,.7)*1.35,sunMask);              // lift sky out of the tonemapper's mud; disc blows out to white-gold
+        c=c*gain;c=mix(c,core*1.3,sunMask);              // lift sky out of the tonemapper's mud; disc blows out to white-gold
         gl_FragColor=vec4(c,1.);}`,
   }));
   scene.add(dome);
@@ -60,7 +60,7 @@ export function buildSky(scene) {
   scene.add(new THREE.Points(pg, new THREE.PointsMaterial({ size: .09, map: dotTex, transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending })));
 
   return {
-    dome,
+    dome, cloudMat, motes: scene.children[scene.children.length - 1],
     update(t, dt) {
       clouds.forEach((c, i) => { c.position.x += dt * (.25 + i * .04); if (c.position.x > 150) c.position.x = -150; });
       const p = pg.attributes.position.array;

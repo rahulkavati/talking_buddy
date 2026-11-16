@@ -38,10 +38,11 @@ tts:
   speed: 1.02
 
 voice:
-  # Pipecat/WebRTC is the primary path; the existing WebSocket pipeline remains
-  # the automatic local fallback when browser or provider startup fails.
-  transport: "pipecat"
-  fallback_transport: "websocket"
+  # Keep the validated local PCM/WebSocket path active while the Electron
+  # WebRTC microphone sender is being repaired. Pipecat remains available
+  # explicitly with ?voice=pipecat.
+  transport: "websocket"
+  fallback_transport: "pipecat"
 
 server:
   port: 8000

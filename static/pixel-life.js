@@ -5,19 +5,17 @@ import { buildSky, SUN_DIR, LIGHT_DIR } from './scene/sky.js';
 import { buildMeadow, HAZE } from './scene/meadow.js';
 import { buildBuddy } from './scene/buddy.js';
 import { createPost } from './scene/post.js';
+import { THEMES } from './scene/themes.js';
+import { rimU } from './scene/buddy.js';
 
 const qs = new URLSearchParams(location.search);
 const SHOT = qs.has('shot');
-const QUALITY = parseFloat(qs.get('q') || (SHOT ? '.6' : '1'));
+const SETTINGS = window.PIXEL_SETTINGS || {};
+const QUALITY = parseFloat(qs.get('q') || (SHOT ? '.6' : { high: '1', medium: '.7', low: '.45' }[SETTINGS.quality] || '1'));
+const CALM = SETTINGS.reduce_motion === true;   // calmer wind, still camera, no bounce
 const TAU = Math.PI * 2, rnd = (a, b) => a + Math.random() * (b - a), damp = THREE.MathUtils.damp, sn = Math.sin;
 
-document.title = 'Pixel // Soft Meadow';
-const $ = s => document.querySelector(s);
-$('.logo')?.replaceChildren(document.createTextNode('✿'));
-if ($('.title')?.firstChild) $('.title').firstChild.nodeValue = 'PIXEL ';
-if ($('.badge')) $('.badge').textContent = 'SOFT MEADOW';
-if ($('.eyebrow')) $('.eyebrow').textContent = 'LOCAL VOICE COMPANION';
-if ($('.feed-head span')) $('.feed-head span').textContent = 'MEADOW VOICE LINK';
+document.title = 'Pixel';
 
 /* ---------- renderer / scene / camera / post ---------- */
 const host = document.getElementById('canvas-container');
@@ -48,15 +46,89 @@ const meadow = buildMeadow(scene, QUALITY);
 const B = buildBuddy(scene);
 const { float, squash, eyes, mouthG, mouth, tongue, antenna, hands, blob } = B;
 
+/* ---------- theme: one object recolours sky, meadow, light and buddy ---------- */
+const hemi = scene.children.find(c => c.isHemisphereLight);
+function applyTheme(name) {
+  const T = THEMES[name] || THEMES.golden;
+  const su = sky.dome.material.uniforms; for (const k of ['top', 'mid', 'low', 'glow']) su[k].value.set(T.sky[k]); su.core.value.set(T.sky.disc); su.gain.value = T.sky.gain; su.glowK.value = T.sky.glowK;
+  const cu = sky.cloudMat.uniforms; ['lit', 'mid', 'dark', 'warm'].forEach((k, i) => cu[k].value.set(T.sky.cloud[i]));
+  sky.motes.material.color.set(T.motes);
+  const gu = meadow.grass.material.uniforms; for (const k in T.grass) gu[k].value.set(T.grass[k]);
+  ['gDeep', 'gOlive', 'gGold', 'gHz'].forEach((k, i) => meadow.groundU[k].value.setRGB(...T.ground[i], THREE.LinearSRGBColorSpace));
+  meadow.leaf.forEach((m, i) => { m.color.set(T.leaf[i]); m.emissive.set(T.leaf[i]); });
+  meadow.hills.forEach((h, i) => { h.material.uniforms.base.value.set(T.hills[i % 2]); h.material.uniforms.hazeC.value.set(T.haze); });
+  scene.fog.color.set(T.haze);
+  sun.color.set(T.sun); sun.intensity = T.sunI; key.color.set(T.key); key.intensity = T.keyI; fill.color.set(T.fill);
+  hemi.color.set(T.hemi[0]); hemi.groundColor.set(T.hemi[1]); hemi.intensity = T.hemi[2]; renderer.toneMappingExposure = T.exposure;
+  const M = B.M; M.body.color.set(T.body); M.body.sheenColor.set(T.sheen); M.mitt.color.set(T.mitt); M.eye.color.set(T.eye); M.pupil.color.set(T.pupil); rimU.value.set(T.rim);
+  M.body.emissive.set(T.body).multiplyScalar(T.glow); M.mitt.emissive.set(T.mitt).multiplyScalar(T.glow);
+}
+applyTheme(qs.get('theme') || SETTINGS.theme);
+
 /* ---------- hooks shared with the HUD / realtime.js ---------- */
 let analyser = null, adata = null, lvl = 0, speaking = false, statusMode = 'idle';
-window.animateSpeaking = v => { speaking = v; };
 window.pixelTap = (src, ctx) => { try { analyser = ctx.createAnalyser(); analyser.fftSize = 512; adata = new Uint8Array(512); src.connect(analyser); } catch (_) {} };
 const statusEl = document.getElementById('status');
-const readStatus = () => { const s = (statusEl?.textContent || '').toUpperCase(); return /THINK|PROCESS|TRANSCRIB/.test(s) ? 'thinking' : /LISTEN|HEARING/.test(s) ? 'listening' : 'idle'; };
-if (statusEl) new MutationObserver(() => { statusMode = readStatus(); }).observe(statusEl, { childList: true, characterData: true, subtree: true });
+
+/* ---------- conversation state for the HUD + reply-delay timing ---------- */
+const U = window.PixelUI, px = document.getElementById('px'), byId = id => document.getElementById(id);
+const LABEL = { idle: 'Ready', listening: 'Listening', thinking: 'Thinking', speaking: 'Speaking', error: 'Connection problem' };
+const HINT = {
+  idle: 'Tap the mic to start talking · you can interrupt any time', listening: 'Listening… just speak', thinking: 'Thinking…',
+  speaking: SETTINGS.barge_in === false ? 'Speaking…' : 'Speaking · start talking to interrupt',
+};
+let uiState = '', uiHint = '', speakHold = 0, turnStart = 0, turnKind = 'voice', turnText = '';
+function refreshUI() {
+  if (!px) return;
+  const raw = statusEl?.textContent || '', st = raw.toUpperCase();
+  let state = 'idle';
+  if (/ERROR|UNAVAILABLE|LINK LOST/.test(st)) state = 'error';
+  else if (speaking || performance.now() < speakHold) state = 'speaking';   // the hold bridges the gap between sentences
+  else if (/THINK|PROCESS|TRANSCRIB|SPEAK/.test(st)) state = 'thinking';
+  else if (/LISTEN|HEARING|WHISPER|CAPTION/.test(st)) state = 'listening';
+  const hint = state === 'error' ? (raw.split('//')[1] || raw).trim() : /CONNECTING/.test(st) ? 'Connecting…' : HINT[state];
+  if (state === uiState && hint === uiHint) return;
+  uiState = state; uiHint = hint;
+  px.dataset.state = state; byId('stateLabel').textContent = LABEL[state]; byId('hint').textContent = hint;
+  byId('talk').setAttribute('aria-pressed', String(state !== 'idle' && state !== 'error'));
+  statusMode = state === 'thinking' || state === 'listening' ? state : 'idle';
+}
+window.animateSpeaking = v => {
+  if (v && !speaking && turnStart) {
+    const ms = performance.now() - turnStart; turnStart = 0;
+    if (ms > 30 && ms < 30000) {
+      byId('latency').textContent = U.fmtMs(ms); byId('latency').dataset.tone = U.delayTone(ms);
+      U.turns.add({ ms: Math.round(ms), kind: turnKind, text: turnText.slice(0, 80) });
+    }
+  }
+  if (!v && speaking) speakHold = performance.now() + 350;
+  speaking = v; refreshUI();
+};
+// Called by the voice code at the moment your turn ended (see realtime.js).
+window.pixelTurnEnd = (at, kind = 'voice') => { turnStart = at || performance.now(); turnKind = kind; };
+if (statusEl) new MutationObserver(refreshUI).observe(statusEl, { childList: true, characterData: true, subtree: true });
+setInterval(refreshUI, 150);
+const convo = byId('convo');
+const syncConvo = () => { px.dataset.conv = convo.textContent.replace(/^\s*You\s*/, '').trim() ? '1' : '0'; };
+if (convo) new MutationObserver(syncConvo).observe(convo, { childList: true, characterData: true, subtree: true });
+window.pixelResetUI = () => { byId('transcript').textContent = ''; byId('reply')?.remove(); byId('latency').textContent = '—'; delete byId('latency').dataset.tone; turnStart = 0; };
 // kept so realtime.js / fast-chat.js keep working; the buddy no longer does scripted poses
-window.pixel = { gesture() {}, list: [] }; window.pixelUser = () => {}; window.pixelToken = () => {};
+window.pixel = { gesture() {}, list: [] };
+// Assistant transcript for voice mode: the reply is hidden until the tokens
+// stream in, which is when they get rendered here. Without this the user only
+// ever sees their own transcript while Pixel talks.
+let replyEl = null;
+const replyBox = () => {
+  if (replyEl?.isConnected) return replyEl;
+  document.getElementById('reply')?.remove();
+  replyEl = document.createElement('div');
+  replyEl.id = 'reply';
+  (document.getElementById('transcript')?.parentElement || document.body).append(replyEl);
+  return replyEl;
+};
+window.pixelUser = text => { replyEl?.remove(); replyEl = null; turnText = text || ''; if (!turnStart) window.pixelTurnEnd(0, 'voice'); };
+window.pixelToken = text => { if (text) replyBox().textContent += text; };
+window.pixelReply = text => { replyBox().textContent = text || ''; };
 
 /* ---------- camera director + touch ---------- */
 const ptr = { x: 0, y: 0, sx: 0, sy: 0 }, cam = { az: 0, el: 0, zoom: 1, dist: 7.5, ty: 1.5, drag: false, moved: 0, idle: 0, close: false };
@@ -81,7 +153,7 @@ const W = { listening: 0, thinking: 0, speaking: 0 }, tgt = new THREE.Vector3();
 let blinkT = rnd(1.6, 3.2), blinkP = -1, doubleBlink = false, T = 0;
 let mVis = 0, mVisV = 0, mOpen = 0, vTimer = 0, vShape = 1;
 let antPulse = 0, antNext = 1.2, antDir = 1;
-if (!SHOT) setTimeout(() => { sq = .6; }, 600);
+if (!SHOT && !CALM) setTimeout(() => { sq = .6; }, 600);
 
 function spring(x, v, target, k, c, dt) { v += (k * (target - x) - c * v) * dt; return [x + v * dt, v]; }
 
@@ -93,7 +165,7 @@ function update(dt, forcedMode) {
   lvl = damp(lvl, raw, 18, dt);
   for (const k in W) W[k] = damp(W[k], mode === k ? 1 : 0, 5, dt);
   ptr.sx = damp(ptr.sx, ptr.x, 4, dt); ptr.sy = damp(ptr.sy, ptr.y, 4, dt);
-  sky.update(t, dt); meadow.update(t);
+  sky.update(t, dt); meadow.update(CALM ? t * .3 : t);
   const ws = W.speaking, wl = W.listening, wt = W.thinking;
 
   // floating: slow bob + gentle sway; slightly more bounce while talking
@@ -140,12 +212,12 @@ function update(dt, forcedMode) {
 
   // camera director
   const aspect = innerWidth / innerHeight, wide = aspect < .8 ? 1.5 : aspect < 1.2 ? 1.2 : 1;
-  const base = cam.close ? 5.2 : { idle: 7.5, listening: 7.2, thinking: 7.3, speaking: 6.9 }[mode], ty = cam.close ? 1.6 : { idle: 1.5, listening: 1.52, thinking: 1.5, speaking: 1.55 }[mode];
+  const base = cam.close ? 5.2 : { idle: 7.5, listening: 7.2, thinking: 7.3, speaking: 6.9 }[mode], ty = cam.close ? 1.6 : { idle: 1.34, listening: 1.36, thinking: 1.34, speaking: 1.4 }[mode];
   cam.dist = damp(cam.dist, base * wide * cam.zoom, 2.2, dt); cam.ty = damp(cam.ty, ty, 2.2, dt);
   if (!cam.drag) { cam.idle += dt; if (cam.idle > 5) { cam.az = damp(cam.az, 0, 1.2, dt); cam.el = damp(cam.el, 0, 1.2, dt); } }
   const az = cam.az + ptr.sx * .05, el = cam.el + ptr.sy * .015 - .01;
   tgt.set(0, cam.ty, .25);
-  camera.position.set(sn(az) * Math.cos(el) * cam.dist + sn(t * .2) * .03, Math.max(.7, tgt.y + .1 + sn(el) * cam.dist), Math.cos(az) * Math.cos(el) * cam.dist + tgt.z);
+  camera.position.set(sn(az) * Math.cos(el) * cam.dist + (CALM ? 0 : sn(t * .2) * .03), Math.max(.7, tgt.y + .1 + sn(el) * cam.dist), Math.cos(az) * Math.cos(el) * cam.dist + tgt.z);
   camera.lookAt(tgt);
   post.dof.uniforms.focus.value = camera.position.distanceTo(tgt);
   post.dof.uniforms.range.value = 11; post.dof.uniforms.maxCoc.value = 3.2 * PR;
@@ -163,7 +235,7 @@ if (!SHOT) frame();
 else {
   // deterministic screenshot mode: ?shot  ->  window.__shot.go({ t: seconds, mode, gesture, az, dist })
   window.__post = post; window.__scene = scene; window.__shot = { stats: meadow.stats, go(o = {}) {
-    if (o.speak !== undefined) speaking = o.speak;
+    if (o.speak !== undefined) window.animateSpeaking(o.speak);
     if (o.az !== undefined) cam.az = o.az; if (o.close !== undefined) cam.close = o.close;
     const n = Math.round((o.t ?? 4) * 20); for (let i = 0; i < n; i++) update(.05, o.mode);
     post.composer.render(); return meadow.stats;

@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel · Voice & Look</title><link rel="stylesheet" href="/static/pixel-ui.css"></head>
+<body><div class="app-shell"><aside class="sidebar" id="side"></aside><main class="content" id="main">
+<header class="page-head"><div><p class="eyebrow">Personalise</p><h1>Voice &amp; Look</h1><p class="sub">Pick a world and a voice. Changes show the next time you open Talk.</p></div></header>
+<article class="card"><h2>Theme</h2><div class="themes" id="themes" role="radiogroup" aria-label="Theme"></div></article>
+<section class="cols" id="controls">
+<article class="card"><h2>Voice</h2>
+<label class="field"><span class="field-label">Voice</span><select data-setting="voice" id="voiceSelect" aria-label="Voice"></select></label>
+<label class="field"><span class="field-label">Speaking speed <b data-value-for="speed"></b></span><input type="range" min="80" max="130" step="1" data-scale="100" data-setting="speed" aria-label="Speaking speed"></label>
+<div class="inline"><button class="button secondary" id="preview">▶ Preview voice</button><span class="note" id="previewNote" style="margin:0"></span></div></article>
+<article class="card"><h2>Buddy</h2>
+<label class="field"><span class="field-label">Name</span><input type="text" data-setting="name" maxlength="24" autocomplete="off" aria-label="Buddy name"></label>
+<label class="field"><span class="field-label">Graphics quality</span><select data-setting="quality" aria-label="Graphics quality"><option value="auto">Automatic</option><option value="high">High · densest grass</option><option value="medium">Medium</option><option value="low">Low · fastest</option></select></label>
+<label class="switch"><input type="checkbox" data-setting="reduce_motion"><span class="track"></span><span><strong>Reduce motion</strong><small>Calmer wind and a still camera</small></span></label></article>
+</section>
+</main></div>
+<script src="/static/pixel-ui.js"></script><script src="/static/look.js"></script></body></html>
