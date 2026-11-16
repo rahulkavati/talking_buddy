@@ -101,7 +101,7 @@ microphone -> WebRTC -> Silero VAD -> Smart Turn -> streaming STT
 
 The microphone remains open while Pixel speaks. A genuine barge-in cancels pending LLM/TTS work, flushes queued audio, and preserves only the assistant text that was actually heard. The client handles playback and avatar lip-sync; the server owns orchestration, model calls, cancellation, and metrics.
 
-The desktop build currently defaults to the validated local PCM WebSocket pipeline (`voice.transport: "websocket"`), because the Electron WebRTC microphone sender is still being repaired. Pipecat/WebRTC stays available with `?voice=pipecat` (or `voice.transport: "pipecat"`), remains the automatic fallback for the WebSocket path, and now applies the same opt-in web-search trigger as the WebSocket route.
+The desktop build uses the Pipecat WebRTC pipeline (`voice.transport: "pipecat"`) and falls back to the Classic PCM WebSocket link by itself if WebRTC cannot start. Switch between them on the Conversation Engine screen.
 
 ### Provider and security rules
 
@@ -132,3 +132,8 @@ Choices made in the app are saved to `settings.json` (git-ignored) and layered o
 
     python -m unittest discover -s tests      # API and voice tests
     npm run test:ui                           # UI helper tests (Node 18+)
+
+`tests/test_voice_pipeline.py` plays a recorded question through the real Pipecat
+pipeline (Silero VAD, Smart Turn, turn aggregation, the Ollama service) and checks
+that a spoken reply comes out. `scripts/voice_e2e/` does the same through a real
+browser with the recording as the microphone; see its README.

@@ -60,6 +60,7 @@ def build_ollama(cfg: dict[str, Any]) -> OLLamaLLMService:
         api_key=brain.get("api_key", "local"),
         settings=OLLamaLLMService.Settings(
             model=brain["model"],
+            system_instruction=cfg["character"]["system_prompt"].replace("{name}", cfg["character"]["name"]),
             temperature=brain.get("temperature", 0.7),
             max_tokens=brain.get("max_tokens", 72),
         ),
@@ -150,6 +151,8 @@ def build_transport(connection: Any, *, sample_rate: int = 16000) -> SmallWebRTC
         audio_out_enabled=True,
         audio_out_sample_rate=24000,
         audio_out_channels=1,
-        audio_in_passthrough=False,
+        # The VAD, turn detector and STT are pipeline processors, so the transport must
+        # forward microphone audio downstream. With False every frame is dropped here.
+        audio_in_passthrough=True,
     )
     return SmallWebRTCTransport(connection, params)

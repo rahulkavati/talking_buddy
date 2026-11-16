@@ -80,10 +80,13 @@ const HINT = {
 let uiState = '', uiHint = '', speakHold = 0, turnStart = 0, turnKind = 'voice', turnText = '';
 function refreshUI() {
   if (!px) return;
-  const raw = statusEl?.textContent || '', st = raw.toUpperCase();
+  // realtime.js shows a short label in #status and keeps the full status (including
+  // error text) in data-raw; read the full one so errors are never shown as "Ready".
+  const raw = statusEl?.dataset.raw || statusEl?.textContent || '', st = raw.toUpperCase();
   let state = 'idle';
   if (/ERROR|UNAVAILABLE|LINK LOST|MUTED|CLICK TO UNMUTE/.test(st)) state = 'error';
   else if (speaking || performance.now() < speakHold) state = 'speaking';   // the hold bridges the gap between sentences
+  else if (/HEARING|LIVE WHISPER/.test(st)) state = 'listening';   // live captions while you are still talking
   else if (/THINK|PROCESS|TRANSCRIB|SPEAK/.test(st)) state = 'thinking';
   else if (/LISTEN|HEARING|WHISPER|CAPTION/.test(st)) state = 'listening';
   const hint = state === 'error' ? (raw.split('//')[1] || raw).trim() : /CONNECTING/.test(st) ? 'Connecting…' : HINT[state];
@@ -106,7 +109,7 @@ window.animateSpeaking = v => {
 };
 // Called by the voice code at the moment your turn ended (see realtime.js).
 window.pixelTurnEnd = (at, kind = 'voice') => { turnStart = at || performance.now(); turnKind = kind; };
-if (statusEl) new MutationObserver(refreshUI).observe(statusEl, { childList: true, characterData: true, subtree: true });
+if (statusEl) new MutationObserver(refreshUI).observe(statusEl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['data-raw'] });
 setInterval(refreshUI, 150);
 const convo = byId('convo');
 const syncConvo = () => { px.dataset.conv = convo.textContent.replace(/^\s*You\s*/, '').trim() ? '1' : '0'; };

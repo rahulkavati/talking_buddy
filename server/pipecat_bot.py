@@ -83,24 +83,15 @@ def _load_config() -> dict[str, Any]:
     return cfg
 
 
-def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
-    """Build one isolated Pipecat pipeline and its runner for a peer."""
-    services = _load_services()
-    processors = _load_processors()
-    cfg = _load_config()
-    providers = services.build_services(cfg)
-    transport = services.build_transport(connection)
+def build_pipeline(source: Any, sink: Any, providers: Any, cfg: dict[str, Any], processors: Any):
+    """Assemble the conversation pipeline between an audio source and an audio sink.
 
-    context = LLMContext(
-        messages=[
-            {
-                "role": "system",
-                "content": cfg["character"]["system_prompt"].replace(
-                    "{name}", cfg["character"]["name"]
-                ),
-            }
-        ]
-    )
+    Kept apart from the WebRTC transport so ``tests/test_voice_pipeline.py`` can
+    drive exactly this pipeline with recorded speech instead of a microphone.
+    Returns the pipeline and the conversation context.
+    """
+    # The system prompt lives on the LLM service (see services.build_ollama).
+    context = LLMContext()
     aggregators = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
@@ -110,24 +101,36 @@ def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
             ),
         ),
     )
-    user_context = aggregators.user()
-    assistant_context = aggregators.assistant()
-
     pipeline = Pipeline(
         [
-            transport.input(),
+            source,
             VADProcessor(vad_analyzer=providers.vad),
             providers.stt,
             # Same opt-in web trigger as the WebSocket path, so both transports
             # agree on when the internet is used.
             processors.WebGateProcessor(cfg),
-            user_context,
+            aggregators.user(),
             providers.llm,
-            assistant_context,
             providers.tts,
-            transport.output(),
+            sink,
+            # Must come after the sink: the assistant aggregator consumes text
+            # frames, so placed before the TTS it leaves the voice with nothing
+            # to say. Here it also records only what was actually spoken, which
+            # keeps the history correct after an interruption.
+            aggregators.assistant(),
         ]
     )
+    return pipeline, context
+
+
+def build_session(connection: Any) -> tuple[PipelineWorker, WorkerRunner]:
+    """Build one isolated Pipecat pipeline and its runner for a peer."""
+    services = _load_services()
+    processors = _load_processors()
+    cfg = _load_config()
+    providers = services.build_services(cfg)
+    transport = services.build_transport(connection)
+    pipeline, _ = build_pipeline(transport.input(), transport.output(), providers, cfg, processors)
     worker = PipelineWorker(
         pipeline,
         name="pixel-webrtc-session",

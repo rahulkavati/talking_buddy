@@ -20,3 +20,5 @@ static/*.mp3
 settings.json
 settings.json.tmp
 models/*.part
+
+scripts/voice_e2e/question.wav

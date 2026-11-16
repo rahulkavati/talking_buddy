@@ -75,6 +75,15 @@ export function buildMeadow(scene, quality = 1) {
   const pos = [], par = [], rr = [];
   const TUFTS = Math.floor(12000 * quality);
   const windYaw = Math.atan2(1, .28), CAMZ = 7.4;
+  // Tufts are sampled around the lens, so the ground between the bench and the camera
+  // came out many times denser than the grass behind the bench. frontKeep() is the share
+  // of tufts to keep there so the density matches what sits just behind the bench.
+  const spot = (x, z) => Math.abs(sn(x * 12.9898 + z * 78.233) * 43758.5453) % 1;   // stable 0..1 value per place
+  const FRONT_REF = CAMZ - (BENCH.z - BENCH.hz - .5);                       // lens to just behind the bench
+  const frontKeep = (x, z, d) => {
+    const zone = ss(z, BENCH.z + BENCH.hz - .2, BENCH.z + BENCH.hz + .8) * (1 - ss(Math.abs(x), 4.5, 7.5));
+    return 1 - zone * (1 - Math.max(Math.pow(d / FRONT_REF, 2), .05));
+  };
   for (let n = 0; n < TUFTS; n++) {
     // sample in a fan around the lens: equal numbers per octave of distance => dense and sharp up close, carpet-like far away
     const d = .9 * Math.pow(80 / .9, Math.pow(R(), 1.2)), phi = (R() * 2 - 1) * 1.12;
@@ -82,6 +91,9 @@ export function buildMeadow(scene, quality = 1) {
     if (benchDist(x, z) < .05) continue;
     const y = hgt(x, z), env = heightEnv(x, z) * (1 + ss(r, 10, 45) * 1.1);
     const sizeScale = 1 + ss(r, 6, 45) * 1.8;
+    // Decided from the position (not the shared RNG) and applied at push time, so every
+    // other tuft in the meadow stays exactly where it was.
+    const thinned = spot(x, z) > frontKeep(x, z, d);
     const lean = sn(x * .21 + z * .17) * .7 + sn(x * .08 - z * .13) * .6;       // patches of different lean direction
     const K = 6 + Math.floor(R() * 8), tone = R(), tuftH = env * rnd(.75, 1.25);
     for (let k = 0; k < K; k++) {
@@ -90,9 +102,11 @@ export function buildMeadow(scene, quality = 1) {
       const yaw = (aligned ? windYaw + lean * .6 + gauss() * .45 : R() * TAU);
       const H = tuftH * rnd(.6, 1.25) * 1.3, W = rnd(.055, .1) * sizeScale * (.8 + H * .2);
       const bend = rnd(.55, 1.9) * (.55 + H * .45);
+      const seedA = R() * TAU, toneK = Math.min(1, Math.max(0, tone + gauss() * .18)), seedB = R(), seedC = R();
+      if (thinned) continue;
       pos.push(x + Math.cos(oa) * off, y, z + Math.sin(oa) * off);
       par.push(H, W, yaw, bend);
-      rr.push(R() * TAU, Math.min(1, Math.max(0, tone + gauss() * .18)), R(), R());
+      rr.push(seedA, toneK, seedB, seedC);
     }
   }
   const GN = pos.length / 3;
@@ -210,7 +224,7 @@ export function buildMeadow(scene, quality = 1) {
     if (benchDist(x, z) < .6) continue;
     const env = heightEnv(x, z) * (1 + ss(r, 10, 45) * 1.1), H = env * rnd(.85, 1.3) + .1, s = .62 * (1 + ss(r, 6, 45) * 2.0) * rnd(.85, 1.25);
     aH[placed] = H;
-    o.position.set(x, hgt(x, z), z); o.rotation.set(0, rnd(-.7, .7), 0); o.scale.setScalar(s); o.updateMatrix();
+    o.position.set(x, hgt(x, z), z); o.rotation.set(0, rnd(-.7, .7), 0); o.scale.setScalar(spot(x, z) > frontKeep(x, z, d) ? 0 : s); o.updateMatrix();   // thin the daisies with the grass (scale 0 hides one without moving the others)
     heads.setMatrixAt(placed, o.matrix); stems.setMatrixAt(placed, o.matrix); placed++;
   }
   heads.count = stems.count = placed;

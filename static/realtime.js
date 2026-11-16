@@ -156,8 +156,15 @@
       const speakingNow = playing || audioQueue.length > 0;
       // Learn the room's noise floor so a fan or a quiet room moves the gate,
       // instead of a fixed threshold that fires on breath and keyboard taps.
-      if (!speechStarted && !speakingNow) noiseFloor = noiseFloor * 0.97 + rms * 0.03;
+      // The worklet posts ~3 ms frames, so adapt by elapsed time, not per frame:
+      // a per-frame average chased the voice itself within 100 ms and the gate
+      // often never opened. Quiet frames move the floor quickly (1.5 s); loud
+      // ones only slowly (12 s), so a new steady noise is still learned.
       const gate = Math.max(speechThreshold, noiseFloor * 2.5);
+      if (!speechStarted && !speakingNow) {
+        const seconds = rms < gate ? 1.5 : 12;
+        noiseFloor += (rms - noiseFloor) * (1 - Math.exp(-frameMs / (seconds * 1000)));
+      }
 
       // Barge-in has to clearly beat Pixel's own voice. Otherwise speaker echo
       // interrupts the reply and is then transcribed as a brand-new turn.
@@ -193,7 +200,9 @@
           utteranceMs += frameMs;
           queuePcm(pcm);
         }
-      } else if (speechStarted) {
+      } else if (!speechStarted) {
+        voicedMs = Math.max(0, voicedMs - frameMs);   // scattered blips must not add up to "speech"
+      } else {
         queuePcm(pcm);
         silenceMs += frameMs;
         voicedMs = 0;

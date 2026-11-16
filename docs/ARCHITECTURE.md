@@ -1,6 +1,6 @@
 # Talking Buddy desktop architecture
 
-This is the production architecture for the desktop voice companion. Pipecat/WebRTC is the target transport, but `codex/desktop-v1` currently defaults to the validated `server.py` WebSocket route while the Electron WebRTC microphone sender is repaired. Pipecat can be selected with `?voice=pipecat` (or `voice.transport: "pipecat"`), acts as the automatic fallback, and shares the same opt-in web-search gate through `server/tools.py` and `server/processors.py`.
+This is the production architecture for the desktop voice companion. Pipecat/WebRTC is the primary transport; the `server.py` WebSocket route remains as the automatic fallback when WebRTC cannot start.
 
 ## Runtime topology
 

@@ -53,16 +53,17 @@ class VoiceTransportTests(unittest.TestCase):
         self.assertEqual(frames[0].text, "hello pixel")
 
     def test_configured_primary_and_fallback(self):
-        with TestClient(server.app) as client:
+        # Ignore this machine's settings.json: the test is about config.yaml defaults.
+        with patch.object(server, "SETTINGS_PATH", ROOT / "tests" / "no-settings.json"), TestClient(server.app) as client:
             response = client.get("/api/voice/status")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["transport"], "websocket")
-        self.assertEqual(response.json()["fallback"], "pipecat")
+        self.assertEqual(response.json()["transport"], "pipecat")
+        self.assertEqual(response.json()["fallback"], "websocket")
 
     def test_index_exposes_pipecat_client(self):
-        with TestClient(server.app) as client:
+        with patch.object(server, "SETTINGS_PATH", ROOT / "tests" / "no-settings.json"), TestClient(server.app) as client:
             html = client.get("/").text
-        self.assertIn('window.PIXEL_VOICE_TRANSPORT="websocket"', html)
+        self.assertIn('window.PIXEL_VOICE_TRANSPORT="pipecat"', html)
         self.assertIn('/static/pipecat-webrtc.js', html)
         client = (ROOT / "static" / "pipecat-webrtc.js").read_text()
         self.assertIn("type: 'client-ready'", client)

@@ -78,26 +78,47 @@
         },
       }));
     };
+    // RTVI messages drive the HUD. Each type is handled explicitly: matching on
+    // substrings used to put Pixel's own words into the "You" transcript.
     rtvi.onmessage = event => {
-      try {
-        const payload = JSON.parse(event.data);
-        const envelope = payload?.message || payload;
-        const message = envelope?.data || envelope?.message || envelope;
-        const type = String(envelope?.type || message?.type || '').toLowerCase();
-        const text = message?.text || message?.transcript || message?.content;
-        if (typeof text === 'string' && text.trim() &&
-            (type.includes('transcript') || type.includes('user') || type.includes('text'))) {
+      let envelope;
+      try { envelope = JSON.parse(event.data); } catch (_) { return; }   // telemetry is optional; audio must continue
+      const type = envelope?.type, data = envelope?.data || {};
+      const text = typeof data.text === 'string' ? data.text : '';
+      switch (type) {
+        case 'user-started-speaking':
+          onState?.('HEARING YOU // PIPECAT');
+          break;
+        case 'user-stopped-speaking':
+          window.pixelTurnEnd?.(performance.now(), 'voice');
+          onState?.('THINKING // PIPECAT');
+          break;
+        case 'user-transcription': {
+          if (!text.trim()) break;
           const transcript = document.getElementById('transcript');
           if (transcript) transcript.textContent = text.trim();
-          if (type.includes('user')) window.pixelUser?.(text.trim());
+          if (data.final !== false) window.pixelUser?.(text.trim());
+          break;
         }
-        // The HUD and the buddy's mouth follow animateSpeaking, exactly as on the Classic link.
-        if (type === 'bot-started-speaking') { onState?.('SPEAKING // PIPECAT AUDIO'); window.animateSpeaking?.(true); }
-        if (type === 'bot-stopped-speaking') { onState?.('LISTENING // PIPECAT WEBRTC'); window.animateSpeaking?.(false); }
-        if (type === 'bot-interrupted') { onState?.('LISTENING // PIPECAT INTERRUPTED'); window.animateSpeaking?.(false); }
-        if (type.includes('error')) onState?.('PIPECAT ERROR // ' + (message?.error || text || 'unknown'));
-      } catch (_) {
-        // Data-channel messages are optional UI telemetry; audio must continue.
+        case 'bot-llm-text':
+          window.pixelToken?.(text);
+          break;
+        case 'bot-started-speaking':
+          onState?.('SPEAKING // PIPECAT AUDIO');
+          window.animateSpeaking?.(true);
+          break;
+        case 'bot-stopped-speaking':
+          window.animateSpeaking?.(false);
+          onState?.('LISTENING // PIPECAT WEBRTC');
+          break;
+        case 'bot-interrupted':
+          window.animateSpeaking?.(false);
+          break;
+        case 'error':
+          onState?.('PIPECAT ERROR // ' + (data.message || data.error || 'The voice pipeline reported a problem.'));
+          break;
+        default:
+          break;
       }
     };
     peer.ontrack = event => {

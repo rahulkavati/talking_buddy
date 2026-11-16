@@ -38,11 +38,11 @@ tts:
   speed: 1.02
 
 voice:
-  # Keep the validated local PCM/WebSocket path active while the Electron
-  # WebRTC microphone sender is being repaired. Pipecat remains available
-  # explicitly with ?voice=pipecat.
-  transport: "websocket"
-  fallback_transport: "pipecat"
+  # "pipecat" = WebRTC with Silero VAD and Smart Turn (primary).
+  # "websocket" = the simpler Classic link; the app falls back to it by itself
+  # when WebRTC cannot start. Force either with ?voice=pipecat or ?voice=websocket.
+  transport: "pipecat"
+  fallback_transport: "websocket"
 
 server:
   port: 8000
